@@ -1909,9 +1909,21 @@ function getDefaultPrice(serviceId) {
   return svc.items[0].price || '';
 }
 
+function getDefaultItemName(serviceId) {
+  const services = DB.get('services') || [];
+  const svc = services.find(s => s.id === serviceId);
+  if (!svc || !svc.items || svc.items.length === 0) return '';
+  return svc.items[0].name || '';
+}
+
 function getAutoName(serviceId, pricingType) {
-  const autoNames = {'s2':'Wash and Fold','s3':'Wash and Iron','s4':'Steam Iron','s5':'Shoe Cleaning','s6':'Saree Roll Press'};
-  return pricingType === 'per_kg' ? (autoNames[serviceId] || '') : '';
+  // For per_kg services, use service name
+  const autoNames = {'s2':'Wash and Fold','s3':'Wash and Iron','s4':'Steam Iron','s5':'Shoe Cleaning','s6':'Saree Roll Press','s7':'Dying','s8':'Normal Iron'};
+  if (pricingType === 'per_kg') return autoNames[serviceId] || '';
+  
+  // For per_item services, use first item name from service items
+  const defaultName = getDefaultItemName(serviceId);
+  return defaultName || autoNames[serviceId] || '';
 }
 
 function addItemRow(serviceId, serviceName, pricingType) {
@@ -2747,48 +2759,13 @@ function shareInvoiceAsImage() {
       logging: false
     }).then(canvas => {
       canvas.toBlob(blob => {
-        if (!blob) { showToast('Failed to generate image', 'error'); return; }
-
-        // Get message based on status
-        const templates = DB.get('whatsappTemplates') || {};
-        const templateKey = order.status === 'ready' ? 'orderReady' : 'orderReceived';
-        const shop = DB.get('shopSettings') || {};
-        const balance = Math.max(0, (order.totalAmount||0) - (order.paidAmount||0));
-        const serviceNames = (order.services||[]).map(s=>s.serviceName).join(', ');
-
-        let msg = (templates[templateKey] || '')
-          .replace(/{customerName}/g, order.customerName)
-          .replace(/{orderNo}/g, order.orderNo)
-          .replace(/{services}/g, serviceNames)
-          .replace(/{totalAmount}/g, (order.totalAmount||0).toFixed(2))
-          .replace(/{advancePaid}/g, (order.paidAmount||0).toFixed(2))
-          .replace(/{balanceDue}/g, balance.toFixed(2))
-          .replace(/{dueDate}/g, formatDate(order.dueDate))
-          .replace(/{shopName}/g, shop.name||'TurboWash Laundry')
-          .replace(/{shopPhone}/g, shop.phone||'');
-
-        // Add tracking link at the end
-        const trackingUrl = window.location.origin + '/track/' + order.orderNo;
-        msg += '\n\n📍 Track your order: ' + trackingUrl;
-
-        // Try Web Share API with file
-        if (navigator.share && navigator.canShare) {
-          const file = new File([blob], 'TurboWash_Invoice_' + order.orderNo + '.png', { type:'image/png' });
-          if (navigator.canShare({ files:[file] })) {
-            navigator.share({
-              files: [file],
-              text: msg
-            }).then(() => {
-              markWhatsAppSent(order.id);
-              showToast('Shared successfully! ✅', 'success');
-            }).catch(() => {
-              fallbackWhatsAppInvoiceWithImage(order, canvas, msg);
-            });
-            return;
-          }
+        if (!blob) { 
+          showToast('Failed to generate image', 'error'); 
+          return; 
         }
-        // Fallback
-        fallbackWhatsAppInvoiceWithImage(order, canvas, msg);
+
+        // ALWAYS download image and open WhatsApp (no share sheet)
+        openWhatsAppWithImage(order, canvas);
       }, 'image/png', 0.95);
     }).catch(err => {
       console.error('html2canvas error:', err);
@@ -2800,14 +2777,36 @@ function shareInvoiceAsImage() {
   }
 }
 
-function fallbackWhatsAppInvoiceWithImage(order, canvas, msg) {
-  // Download image
+function openWhatsAppWithImage(order, canvas) {
+  // Download image first
   const link = document.createElement('a');
   link.download = 'TurboWash_Invoice_' + order.orderNo + '.png';
   link.href = canvas.toDataURL('image/png', 0.95);
   link.click();
 
-  // Open WhatsApp with message
+  // Prepare message based on status
+  const templates = DB.get('whatsappTemplates') || {};
+  const templateKey = order.status === 'ready' ? 'orderReady' : 'orderReceived';
+  const shop = DB.get('shopSettings') || {};
+  const balance = Math.max(0, (order.totalAmount||0) - (order.paidAmount||0));
+  const serviceNames = (order.services||[]).map(s=>s.serviceName).join(', ');
+
+  let msg = (templates[templateKey] || '')
+    .replace(/{customerName}/g, order.customerName)
+    .replace(/{orderNo}/g, order.orderNo)
+    .replace(/{services}/g, serviceNames)
+    .replace(/{totalAmount}/g, (order.totalAmount||0).toFixed(2))
+    .replace(/{advancePaid}/g, (order.paidAmount||0).toFixed(2))
+    .replace(/{balanceDue}/g, balance.toFixed(2))
+    .replace(/{dueDate}/g, formatDate(order.dueDate))
+    .replace(/{shopName}/g, shop.name||'TurboWash Laundry')
+    .replace(/{shopPhone}/g, shop.phone||'');
+
+  // Add tracking link
+  const trackingUrl = window.location.origin + '/track/' + order.orderNo;
+  msg += '\n\n📍 Track your order: ' + trackingUrl;
+
+  // Open WhatsApp directly
   setTimeout(() => {
     const phone = order.customerPhone.replace(/[^0-9]/g,'');
     const waPhone = phone.startsWith('91') ? phone : '91' + phone;
@@ -2844,6 +2843,80 @@ function sendWhatsAppWithTracking(order) {
   const url = `https://wa.me/${waPhone}?text=${encodeURIComponent(msg)}`;
   window.open(url, '_blank');
   markWhatsAppSent(order.id);
+}
+
+function generateAndSendInvoiceWhatsApp(order) {
+  // First show invoice to generate the HTML
+  showInvoice(order.id);
+  
+  // Wait for invoice to render, then capture and send
+  setTimeout(() => {
+    const content = document.getElementById('invoiceContent');
+    if (!content || typeof html2canvas === 'undefined') {
+      // Fallback to text only
+      closeModal('invoiceModal');
+      sendWhatsAppWithTracking(order);
+      return;
+    }
+
+    html2canvas(content, {
+      scale: 2,
+      backgroundColor: '#ffffff',
+      useCORS: true,
+      allowTaint: true,
+      logging: false
+    }).then(canvas => {
+      closeModal('invoiceModal');
+      
+      // Convert to blob
+      canvas.toBlob(blob => {
+        if (!blob) {
+          sendWhatsAppWithTracking(order);
+          return;
+        }
+
+        // Download image
+        const link = document.createElement('a');
+        link.download = 'TurboWash_Invoice_' + order.orderNo + '.png';
+        link.href = canvas.toDataURL('image/png', 0.95);
+        link.click();
+
+        // Prepare WhatsApp message
+        const templates = DB.get('whatsappTemplates') || {};
+        const shop = DB.get('shopSettings') || {};
+        const balance = Math.max(0, (order.totalAmount||0) - (order.paidAmount||0));
+        const serviceNames = (order.services||[]).map(s=>s.serviceName).join(', ');
+
+        let msg = (templates.orderReceived || '')
+          .replace(/{customerName}/g, order.customerName)
+          .replace(/{orderNo}/g, order.orderNo)
+          .replace(/{services}/g, serviceNames)
+          .replace(/{totalAmount}/g, (order.totalAmount||0).toFixed(2))
+          .replace(/{advancePaid}/g, (order.paidAmount||0).toFixed(2))
+          .replace(/{balanceDue}/g, balance.toFixed(2))
+          .replace(/{dueDate}/g, formatDate(order.dueDate))
+          .replace(/{shopName}/g, shop.name||'TurboWash Laundry')
+          .replace(/{shopPhone}/g, shop.phone||'');
+
+        const trackingUrl = window.location.origin + '/track/' + order.orderNo;
+        msg += '\n\n📍 Track your order: ' + trackingUrl;
+
+        // Open WhatsApp
+        setTimeout(() => {
+          const phone = order.customerPhone.replace(/[^0-9]/g,'');
+          const waPhone = phone.startsWith('91') ? phone : '91' + phone;
+          const url = `https://wa.me/${waPhone}?text=${encodeURIComponent(msg)}`;
+          window.open(url, '_blank');
+          markWhatsAppSent(order.id);
+          showToast('Invoice image downloaded! Attach in WhatsApp 📸', 'success');
+        }, 500);
+      }, 'image/png', 0.95);
+    }).catch(err => {
+      console.error('Invoice generation error:', err);
+      closeModal('invoiceModal');
+      sendWhatsAppWithTracking(order);
+    });
+  }, 1000);
 }
 
 function markWhatsAppSent(orderId) {
