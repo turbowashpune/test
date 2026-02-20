@@ -1387,9 +1387,13 @@ function renderOrderCard(order) {
       </div>
     </div>
     <div style="display:flex;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">
-      <button onclick="event.stopPropagation();quickShareWhatsApp('${order.id}')"
-        style="flex:1;padding:9px 8px;border-radius:8px;border:none;background:linear-gradient(135deg,#25D366,#128C7E);color:white;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;box-shadow:0 3px 12px rgba(37,211,102,0.3);">
-        📱 Share on WhatsApp ${waCount > 0 ? `<span style="background:rgba(255,255,255,0.3);border-radius:10px;padding:1px 6px;font-size:9px;">${waCount}</span>` : ''}
+      <button onclick="event.stopPropagation();quickShareWhatsAppText('${order.id}')"
+        style="flex:1;padding:8px 6px;border-radius:8px;border:1.5px solid #25D366;background:rgba(37,211,102,0.1);color:#128C7E;font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:3px;">
+        💬 Share on WhatsApp
+      </button>
+      <button onclick="event.stopPropagation();quickShareInvoiceImage('${order.id}')"
+        style="flex:1;padding:8px 6px;border-radius:8px;border:1.5px solid var(--orange);background:rgba(255,107,0,0.1);color:var(--orange);font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:3px;">
+        📄 Share Invoice
       </button>
     </div>
     ${needsNotification ? `<div style="margin-top:8px;padding:8px 10px;background:linear-gradient(135deg,#FFB300,#F57F17);border-radius:8px;display:flex;align-items:center;gap:8px;">
@@ -2300,8 +2304,9 @@ function showOrderDetail(orderId) {
 
   const footerBtns = [];
   if (isOperatorPlus) footerBtns.push(`<button class="btn btn-secondary" style="flex:1" onclick="showEditOrder('${order.id}')">✏️ Edit</button>`);
-  footerBtns.push(`<button class="btn btn-info" style="flex:1" onclick="trackInvoiceView('${order.id}')">📄 Invoice</button>`);
-  footerBtns.push(`<button class="btn btn-primary" style="flex:1" onclick="sendWhatsAppFromDetail('${order.id}')">💬 WA</button>`);
+  footerBtns.push(`<button class="btn btn-success" style="flex:1" onclick="shareOrderWhatsAppText('${order.id}')">💬 Share on WhatsApp</button>`);
+  footerBtns.push(`<button class="btn btn-info" style="flex:1" onclick="shareOrderInvoiceImage('${order.id}')">📄 Share Invoice</button>`);
+  footerBtns.push(`<button class="btn btn-primary" style="flex:1" onclick="downloadOrderPDF('${order.id}')">⬇️ PDF</button>`);
   if (isAdmin) footerBtns.push(`<button class="btn btn-danger btn-sm" onclick="deleteOrder('${order.id}')">🗑</button>`);
 
   document.getElementById('orderDetailFooter').innerHTML = footerBtns.join('');
@@ -2367,25 +2372,71 @@ function deleteOrder(orderId) {
 // ============================================================
 // QUICK SHARE FROM CARD
 // ============================================================
-function quickShareWhatsApp(orderId) {
+function quickShareWhatsAppText(orderId) {
   const orders = DB.get('orders') || [];
   const order = orders.find(o => o.id === orderId);
   if (!order) return;
   
-  // Set as current invoice and trigger share
-  currentInvoiceOrderId = orderId;
+  // Send text message only
+  const templateKey = order.status === 'ready' ? 'orderReady' : 'orderReceived';
+  sendWhatsAppMessage(order, templateKey);
   
-  // Generate invoice in memory, then share via WhatsApp
+  // Mark as sent
+  markWhatsAppSent(orderId);
+  renderOrders();
+  renderDueDatePage();
+  refreshDashboard();
+}
+
+function quickShareInvoiceImage(orderId) {
+  const orders = DB.get('orders') || [];
+  const order = orders.find(o => o.id === orderId);
+  if (!order) return;
+  
+  // Generate and share invoice image
+  currentInvoiceOrderId = orderId;
   showInvoice(orderId);
   setTimeout(() => {
-    shareInvoiceAsImage();
+    shareInvoiceImageOnly();
     closeModal('invoiceModal');
-  }, 500);
+  }, 800);
 }
 
 // ============================================================
 // WHATSAPP
 // ============================================================
+function shareOrderWhatsAppText(orderId) {
+  const orders = DB.get('orders') || [];
+  const order = orders.find(o => o.id === orderId);
+  if (!order) return;
+  
+  const templateKey = order.status === 'ready' ? 'orderReady' : 'orderReceived';
+  sendWhatsAppMessage(order, templateKey);
+  markWhatsAppSent(orderId);
+  showToast('Opening WhatsApp... 💬', 'success');
+}
+
+function shareOrderInvoiceImage(orderId) {
+  const orders = DB.get('orders') || [];
+  const order = orders.find(o => o.id === orderId);
+  if (!order) return;
+  
+  currentInvoiceOrderId = orderId;
+  showInvoice(orderId);
+  setTimeout(() => {
+    shareInvoiceImageOnly();
+  }, 800);
+}
+
+function downloadOrderPDF(orderId) {
+  currentInvoiceOrderId = orderId;
+  showInvoice(orderId);
+  setTimeout(() => {
+    downloadInvoicePDF();
+    closeModal('invoiceModal');
+  }, 800);
+}
+
 function sendWhatsAppMessage(order, templateKey) {
   const templates = DB.get('whatsappTemplates') || {};
   let template = templates[templateKey] || '';
@@ -2857,6 +2908,70 @@ function fallbackWhatsAppOnly(order, msg) {
   window.open(url, '_blank');
   markWhatsAppSent(order.id);
   showToast('Opened WhatsApp 💬', 'success');
+}
+
+function shareInvoiceImageOnly() {
+  const content = document.getElementById('invoiceContent');
+  if (!content) { showToast('Invoice not loaded', 'error'); return; }
+
+  const orders = DB.get('orders') || [];
+  const order = orders.find(o => o.id === currentInvoiceOrderId);
+  if (!order) { showToast('Order not found', 'error'); return; }
+
+  showToast('Generating invoice image... ⏳', '');
+
+  if (typeof html2canvas !== 'undefined') {
+    html2canvas(content, {
+      scale: 2,
+      backgroundColor: '#ffffff',
+      useCORS: true,
+      allowTaint: true,
+      logging: false
+    }).then(canvas => {
+      canvas.toBlob(blob => {
+        if (!blob) { 
+          showToast('Failed to generate image', 'error'); 
+          return; 
+        }
+
+        const file = new File([blob], 'TurboWash_Invoice_' + order.orderNo + '.png', { type: 'image/png' });
+
+        // Use Web Share API to share image
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+          navigator.share({
+            files: [file],
+            title: 'Invoice ' + order.orderNo
+          }).then(() => {
+            showToast('Invoice shared! ✅', 'success');
+            closeModal('invoiceModal');
+          }).catch(err => {
+            if (err.name !== 'AbortError') {
+              // Fallback: download
+              const link = document.createElement('a');
+              link.download = 'TurboWash_Invoice_' + order.orderNo + '.png';
+              link.href = canvas.toDataURL('image/png', 0.95);
+              link.click();
+              showToast('Invoice downloaded! 📸', 'success');
+              closeModal('invoiceModal');
+            }
+          });
+        } else {
+          // Fallback: download
+          const link = document.createElement('a');
+          link.download = 'TurboWash_Invoice_' + order.orderNo + '.png';
+          link.href = canvas.toDataURL('image/png', 0.95);
+          link.click();
+          showToast('Invoice downloaded! 📸', 'success');
+          closeModal('invoiceModal');
+        }
+      }, 'image/png', 0.95);
+    }).catch(err => {
+      console.error('html2canvas error:', err);
+      showToast('Failed to generate invoice image', 'error');
+    });
+  } else {
+    showToast('Image generation not available', 'error');
+  }
 }
 
 function sendWhatsAppWithTracking(order) {
