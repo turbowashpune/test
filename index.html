@@ -2778,12 +2778,6 @@ function shareInvoiceAsImage() {
 }
 
 function openWhatsAppWithImage(order, canvas) {
-  // Download image first
-  const link = document.createElement('a');
-  link.download = 'TurboWash_Invoice_' + order.orderNo + '.png';
-  link.href = canvas.toDataURL('image/png', 0.95);
-  link.click();
-
   // Prepare message based on status
   const templates = DB.get('whatsappTemplates') || {};
   const templateKey = order.status === 'ready' ? 'orderReady' : 'orderReceived';
@@ -2806,15 +2800,63 @@ function openWhatsAppWithImage(order, canvas) {
   const trackingUrl = window.location.origin + '/track/' + order.orderNo;
   msg += '\n\n📍 Track your order: ' + trackingUrl;
 
-  // Open WhatsApp directly
+  // Try Web Share API first (works on Android, shares image + text together)
+  canvas.toBlob(blob => {
+    if (!blob) {
+      fallbackWhatsAppOnly(order, msg);
+      return;
+    }
+
+    const file = new File([blob], 'Invoice_' + order.orderNo + '.png', { type: 'image/png' });
+
+    // Check if Web Share API with files is supported
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+      navigator.share({
+        files: [file],
+        text: msg,
+        title: 'Invoice ' + order.orderNo
+      }).then(() => {
+        markWhatsAppSent(order.id);
+        showToast('Shared successfully! ✅', 'success');
+      }).catch(err => {
+        if (err.name !== 'AbortError') {
+          console.error('Share failed:', err);
+          fallbackDownloadAndWhatsApp(order, canvas, msg);
+        }
+      });
+    } else {
+      // Fallback: Download image + open WhatsApp
+      fallbackDownloadAndWhatsApp(order, canvas, msg);
+    }
+  }, 'image/png', 0.95);
+}
+
+function fallbackDownloadAndWhatsApp(order, canvas, msg) {
+  // Download image
+  const link = document.createElement('a');
+  link.download = 'TurboWash_Invoice_' + order.orderNo + '.png';
+  link.href = canvas.toDataURL('image/png', 0.95);
+  link.click();
+
+  // Open WhatsApp with message
   setTimeout(() => {
     const phone = order.customerPhone.replace(/[^0-9]/g,'');
     const waPhone = phone.startsWith('91') ? phone : '91' + phone;
     const url = `https://wa.me/${waPhone}?text=${encodeURIComponent(msg)}`;
     window.open(url, '_blank');
     markWhatsAppSent(order.id);
-    showToast('Image downloaded! Attach in WhatsApp 📸', 'success');
-  }, 500);
+    showToast('Image downloaded! Open WhatsApp and attach it 📸', 'info');
+  }, 800);
+}
+
+function fallbackWhatsAppOnly(order, msg) {
+  // Just open WhatsApp with text (no image)
+  const phone = order.customerPhone.replace(/[^0-9]/g,'');
+  const waPhone = phone.startsWith('91') ? phone : '91' + phone;
+  const url = `https://wa.me/${waPhone}?text=${encodeURIComponent(msg)}`;
+  window.open(url, '_blank');
+  markWhatsAppSent(order.id);
+  showToast('Opened WhatsApp 💬', 'success');
 }
 
 function sendWhatsAppWithTracking(order) {
