@@ -2302,20 +2302,22 @@ function showOrderDetail(orderId) {
   document.getElementById('orderDetailTitle').textContent = 'Order ' + order.orderNo;
   document.getElementById('orderDetailBody').innerHTML = html;
 
-  // Row 1: Edit + Share WhatsApp
+  // TOP ROW: Share on WhatsApp + Share Invoice
   const row1 = [];
-  if (isOperatorPlus) row1.push(`<button class="btn btn-secondary" style="flex:1;padding:8px 10px;font-size:13px;" onclick="showEditOrder('${order.id}')">✏️ Edit</button>`);
   row1.push(`<button class="btn btn-success" style="flex:1;padding:8px 10px;font-size:13px;" onclick="shareOrderWhatsAppText('${order.id}')">💬 Share on WhatsApp</button>`);
+  row1.push(`<button class="btn btn-info" style="flex:1;padding:8px 10px;font-size:13px;" onclick="shareOrderInvoiceImage('${order.id}')">📄 Share Invoice</button>`);
   
-  // Row 2: Share Invoice + PDF + Delete
+  // BOTTOM ROW: PDF + Edit + Delete
   const row2 = [];
-  row2.push(`<button class="btn btn-info" style="flex:1;padding:8px 10px;font-size:13px;" onclick="shareOrderInvoiceImage('${order.id}')">📄 Share Invoice</button>`);
   row2.push(`<button class="btn btn-primary" style="flex:1;padding:8px 10px;font-size:13px;" onclick="downloadOrderPDF('${order.id}')">⬇️ PDF</button>`);
+  if (isOperatorPlus) row2.push(`<button class="btn btn-secondary" style="flex:1;padding:8px 10px;font-size:13px;" onclick="showEditOrder('${order.id}')">✏️ Edit</button>`);
   if (isAdmin) row2.push(`<button class="btn btn-danger" style="flex:0.5;padding:8px 10px;font-size:13px;" onclick="deleteOrder('${order.id}')">🗑</button>`);
 
   document.getElementById('orderDetailFooter').innerHTML = 
-    `<div style="display:flex;gap:8px;margin-bottom:8px;">${row1.join('')}</div>
-     <div style="display:flex;gap:8px;">${row2.join('')}</div>`;
+    `<div style="display:flex;flex-direction:column;gap:8px;width:100%;">
+      <div style="display:flex;gap:8px;">${row1.join('')}</div>
+      <div style="display:flex;gap:8px;">${row2.join('')}</div>
+    </div>`;
   openModal('orderDetailModal');
 }
 
