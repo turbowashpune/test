@@ -42,7 +42,7 @@ html, body { height:100%; overflow:hidden; font-family:'Poppins',sans-serif; bac
 #app { height:100vh; overflow:hidden; display:flex; flex-direction:column; }
 
 /* ===== SCROLLABLE CONTENT ===== */
-.page-content { flex:1; overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; padding-bottom:calc(var(--bottom-nav) + 20px); }
+.page-content { flex:1; overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; padding-bottom:calc(var(--bottom-nav) + 80px); }
 .page-content::-webkit-scrollbar { display:none; }
 
 /* ===== LOGIN PAGE ===== */
@@ -198,6 +198,33 @@ html, body { height:100%; overflow:hidden; font-family:'Poppins',sans-serif; bac
 .order-customer { font-weight:600; font-size:14px; color:var(--text); }
 .order-phone { font-size:12px; color:var(--text2); }
 .order-services { display:flex; flex-wrap:wrap; gap:4px; margin:6px 0; }
+
+/* ===== DUE DATE NEW - HORIZONTAL SCROLL ===== */
+#dueDateNewContainer {
+  /* Webkit (Safari/Chrome) */
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x proximity;
+}
+#dueDateNewContainer::-webkit-scrollbar {
+  height: 10px; /* Increased for better visibility on desktop */
+}
+#dueDateNewContainer::-webkit-scrollbar-track {
+  background: #e0e0e0;
+  border-radius: 5px;
+  margin: 0 10px; /* Add margin on sides */
+}
+#dueDateNewContainer::-webkit-scrollbar-thumb {
+  background: #ff6b00; /* Orange for visibility */
+  border-radius: 5px;
+  border: 2px solid #e0e0e0; /* Add border for depth */
+}
+#dueDateNewContainer::-webkit-scrollbar-thumb:hover {
+  background: #e65100; /* Darker orange on hover */
+}
+.date-column {
+  scroll-snap-align: start;
+}
+
 .service-tag { background:var(--card2); border:1px solid var(--border); border-radius:6px; padding:2px 8px; font-size:10px; color:var(--text2); font-weight:600; }
 .order-card-bottom { display:flex; align-items:center; justify-content:space-between; padding-top:8px; border-top:1px solid var(--border); }
 .order-amount { font-family:'Nunito',sans-serif; font-weight:800; font-size:15px; color:var(--text); }
@@ -254,6 +281,9 @@ html, body { height:100%; overflow:hidden; font-family:'Poppins',sans-serif; bac
 .modal {
   background:white; border-radius:24px 24px 0 0; width:100%; max-width:500px;
   max-height:92vh; overflow-y:auto; padding:0; animation:slideUp 0.3s ease;
+}
+.modal-large {
+  max-width:600px;
 }
 .modal::-webkit-scrollbar { display:none; }
 @keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
@@ -386,6 +416,8 @@ html, body { height:100%; overflow:hidden; font-family:'Poppins',sans-serif; bac
 }
 .popup-overlay.active { display:flex; }
 .popup { background:white; border-radius:20px; width:100%; max-width:380px; overflow:hidden; animation:popIn 0.3s ease; }
+.popup-large { max-width:600px; }
+.popup-large .popup-body { max-height:500px; }
 @keyframes popIn { from{transform:scale(0.8);opacity:0} to{transform:scale(1);opacity:1} }
 .popup-header { padding:20px 20px 16px; text-align:center; }
 .popup-icon { font-size:48px; margin-bottom:8px; }
@@ -477,6 +509,8 @@ input[type="number"] {
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<!-- Tesseract.js for OCR -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
   <!-- Firebase SDK for cloud sync -->
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
@@ -535,7 +569,7 @@ input[type="number"] {
 
   <!-- Top Header -->
   <div class="top-header">
-    <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#FF6B00,#FFD700);display:flex;align-items:center;justify-content:center;font-family:'Nunito',sans-serif;font-weight:900;font-size:16px;color:white;flex-shrink:0;">TW</div>
+    <div id="headerLogoContainer" style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#FF6B00,#FFD700);display:flex;align-items:center;justify-content:center;font-family:'Nunito',sans-serif;font-weight:900;font-size:16px;color:white;flex-shrink:0;">TW</div>
     <div class="header-title">
       <h1>TurboWash Laundry</h1>
       <p id="headerUserInfo">Loading...</p>
@@ -604,13 +638,27 @@ input[type="number"] {
             <div class="stat-lbl">Unpaid Orders</div>
           </div>
         </div>
-        <!-- Recent Orders -->
-        <div class="section-header">
-          <h3>Recent Orders</h3>
-          <a onclick="switchPage('pageOrders')">View All ›</a>
-        </div>
-        <div class="recent-orders" id="recentOrdersList">
-          <div class="loading"><div class="spinner"></div></div>
+        
+        <!-- REVENUE SECTION (Admin Only) -->
+        <div id="revenueSection" style="display:none;">
+          <div class="section-header" style="margin-top:16px;">
+            <h3>💰 Revenue</h3>
+          </div>
+          
+          <!-- Revenue Tabs -->
+          <div style="padding:0 16px;">
+            <div class="revenue-tabs" style="display:flex;gap:8px;margin-bottom:12px;overflow-x:auto;padding-bottom:4px;">
+              <button class="revenue-tab" onclick="switchRevenueTab('year',this)" style="padding:8px 16px;border-radius:8px;border:2px solid var(--border);background:white;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;color:var(--text2);">Year</button>
+              <button class="revenue-tab active" onclick="switchRevenueTab('month',this)" style="padding:8px 16px;border-radius:8px;border:2px solid var(--orange);background:var(--orange);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;color:white;">Month</button>
+              <button class="revenue-tab" onclick="switchRevenueTab('week',this)" style="padding:8px 16px;border-radius:8px;border:2px solid var(--border);background:white;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;color:var(--text2);">Week</button>
+              <button class="revenue-tab" onclick="switchRevenueTab('daily',this)" style="padding:8px 16px;border-radius:8px;border:2px solid var(--border);background:white;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;color:var(--text2);">Daily</button>
+            </div>
+            
+            <!-- Chart Container -->
+            <div id="revenueChartContainer" style="background:white;border-radius:12px;padding:16px;box-shadow:var(--shadow2);overflow-x:auto;min-height:250px;">
+              <div class="loading" style="padding:40px;"><div class="spinner"></div></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -618,22 +666,50 @@ input[type="number"] {
     <!-- ORDERS PAGE -->
     <div class="page" id="pageOrders">
       <div class="page-content">
+        <!-- Main Tabs: Active, Completed, Archive -->
+        <div class="main-tabs" style="display:flex;border-bottom:2px solid var(--border);background:var(--card);margin-bottom:12px;">
+          <div class="main-tab active" onclick="switchOrderTab('active',this)" style="flex:1;text-align:center;padding:12px;font-weight:700;font-size:13px;cursor:pointer;border-bottom:3px solid var(--orange);color:var(--orange);">
+            Active <span id="activeCount" style="background:var(--orange);color:white;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px;">0</span>
+          </div>
+          <div class="main-tab" onclick="switchOrderTab('completed',this)" style="flex:1;text-align:center;padding:12px;font-weight:700;font-size:13px;cursor:pointer;border-bottom:3px solid transparent;color:var(--text2);">
+            Completed <span id="completedCount" style="background:var(--text3);color:white;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px;">0</span>
+          </div>
+          <div class="main-tab" onclick="switchOrderTab('archive',this)" style="flex:1;text-align:center;padding:12px;font-weight:700;font-size:13px;cursor:pointer;border-bottom:3px solid transparent;color:var(--text2);">
+            Archive <span id="archiveCount" style="background:var(--text3);color:white;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px;">0</span>
+          </div>
+        </div>
+
+        <!-- Search Bar -->
         <div class="search-bar">
           <div class="search-input-wrap">
             <span class="search-icon">🔍</span>
             <input type="text" placeholder="Search by name, phone or order no..." id="orderSearch" oninput="filterOrders()">
           </div>
         </div>
+
+        <!-- Sub-filters (Dynamic based on active tab) -->
         <div class="filter-tabs" id="orderFilterTabs">
+          <!-- Active tab filters -->
           <div class="filter-tab active" onclick="setOrderFilter('all',this)">All</div>
           <div class="filter-tab" onclick="setOrderFilter('received',this)">Received</div>
-          <div class="filter-tab" onclick="setOrderFilter('inprogress',this)">In Progress</div>
+          <div class="filter-tab" onclick="setOrderFilter('inprogress',this)">In-Progress</div>
           <div class="filter-tab" onclick="setOrderFilter('ready',this)">Ready</div>
-          <div class="filter-tab" onclick="setOrderFilter('delivered',this)">Delivered</div>
-          <div class="filter-tab" onclick="setOrderFilter('cancelled',this)">Cancelled</div>
+          <div class="filter-tab" onclick="setOrderFilter('unpaid_delivered',this)">Unpaid</div>
         </div>
+
+        <!-- Orders List -->
         <div id="ordersList" style="padding:0 16px; display:flex; flex-direction:column; gap:8px; padding-bottom:20px;">
           <div class="loading"><div class="spinner"></div></div>
+        </div>
+
+        <!-- Load More Button (Archive tab only) -->
+        <div id="loadMoreContainer" style="display:none;padding:16px;text-align:center;">
+          <button onclick="loadMoreArchive()" class="btn btn-secondary btn-full" id="loadMoreBtn">
+            Load More (15 orders)
+          </button>
+          <div style="font-size:11px;color:var(--text3);margin-top:8px;" id="archiveInfo">
+            Showing 1-15 of 243 orders
+          </div>
         </div>
       </div>
     </div>
@@ -642,6 +718,24 @@ input[type="number"] {
     <div class="page" id="pageDueDate">
       <div class="page-content" id="dueDateContent">
         <div class="loading" style="padding:40px;"><div class="spinner"></div></div>
+      </div>
+    </div>
+
+    <!-- DUE DATE NEW PAGE (Kanban Style) -->
+    <div class="page" id="pageDueDateNew">
+      <div class="page-content" style="padding:0;">
+        <!-- Today Button - Fixed at top -->
+        <div style="position:sticky;top:0;z-index:10;background:var(--card);padding:12px 16px;border-bottom:2px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+          <h3 style="margin:0;font-size:16px;font-weight:700;">Due Dates Calendar</h3>
+          <button onclick="scrollToToday()" style="padding:8px 16px;background:var(--orange);color:white;border:none;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:6px;">
+            <span>📍</span> Today
+          </button>
+        </div>
+        
+        <!-- Horizontal Scroll Container -->
+        <div id="dueDateNewContainer" style="display:flex;overflow-x:auto;padding:16px 8px;gap:12px;scroll-behavior:smooth;-webkit-overflow-scrolling:touch;">
+          <div class="loading" style="padding:40px;width:100%;"><div class="spinner"></div></div>
+        </div>
       </div>
     </div>
 
@@ -663,6 +757,15 @@ input[type="number"] {
     <!-- MORE PAGE (Reports, Settings, Backup) -->
     <div class="page" id="pageMore">
       <div class="page-content" style="padding-top:12px;">
+        <!-- Quick Access -->
+        <div class="settings-group">
+          <div class="settings-group-title">⚡ Quick Access</div>
+          <div class="settings-item" onclick="switchPage('pageDueDateNew')">
+            <span class="s-icon">📅</span>
+            <div class="s-info"><div class="s-title">Due Date Calendar</div><div class="s-sub">View orders by date (Kanban style)</div></div>
+            <span class="s-arrow">›</span>
+          </div>
+        </div>
         <!-- Admin sections -->
         <div id="adminMoreSection">
           <div class="settings-group">
@@ -700,6 +803,28 @@ input[type="number"] {
               <div class="s-info"><div class="s-title">Shop Settings</div><div class="s-sub">Name, address, phone, hours</div></div>
               <span class="s-arrow">›</span>
             </div>
+            <div class="settings-item" onclick="showCustomerManager()">
+              <span class="s-icon">👥</span>
+              <div class="s-info"><div class="s-title">Customer Management</div><div class="s-sub">Add, edit, delete & import customers</div></div>
+              <span class="s-arrow">›</span>
+            </div>
+            <div class="settings-item admin-only" onclick="showExpenseManager()">
+              <span class="s-icon">💰</span>
+              <div class="s-info"><div class="s-title">Expense Manager</div><div class="s-sub">Track salary, bills & expenses</div></div>
+              <span class="s-arrow">›</span>
+            </div>
+            <div class="settings-item admin-only" onclick="showProfitLossReport()">
+              <span class="s-icon">📊</span>
+              <div class="s-info"><div class="s-title">Profit & Loss Report</div><div class="s-sub">Income, expenses & profitability</div></div>
+              <span class="s-arrow">›</span>
+            </div>
+            <!-- AI Order Entry - DISABLED FOR NOW (will improve later)
+            <div class="settings-item operator-plus" onclick="showAIOrderEntry()">
+              <span class="s-icon">📸</span>
+              <div class="s-info"><div class="s-title">New order using AI</div><div class="s-sub">Scan notebook & extract entries</div></div>
+              <span class="s-arrow">›</span>
+            </div>
+            -->
           </div>
           <div class="settings-group">
             <div class="settings-group-title">👥 User Management</div>
@@ -761,7 +886,7 @@ input[type="number"] {
       <span class="nav-label">Orders</span>
     </button>
     <button class="nav-fab" onclick="showNewOrderModal()" id="fabBtn">＋</button>
-    <button class="nav-item" onclick="switchPage('pageDueDate')" id="nav-pageDueDate">
+    <button class="nav-item" onclick="switchPage('pageDueDateNew')" id="nav-pageDueDateNew">
       <span class="nav-icon">📅</span>
       <span class="nav-label">Due Date</span>
     </button>
@@ -850,8 +975,147 @@ input[type="number"] {
   </div>
 </div>
 
+<!-- Customer Management Modal -->
+<div class="modal-overlay" id="customerModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <h3>👥 Customer Management</h3>
+      <button class="modal-close" onclick="closeModal('customerModal')">✕</button>
+    </div>
+    <div class="modal-body" style="padding:16px;">
+      <!-- Search & Actions -->
+      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+        <input type="text" id="customerSearchInput" placeholder="🔍 Search customers..." 
+          oninput="filterCustomers()" 
+          style="flex:1;min-width:200px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;">
+        <button class="btn btn-primary" onclick="showAddCustomerForm()" style="white-space:nowrap;">
+          ＋ Add Customer
+        </button>
+      </div>
+      
+      <!-- Bulk Actions -->
+      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+        <button class="btn btn-secondary btn-sm" onclick="downloadCustomersCSV()" style="flex:1;">
+          📥 Download CSV
+        </button>
+        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('customerCSVInput').click()" style="flex:1;">
+          📤 Upload CSV
+        </button>
+        <button id="customerContactPickerButton" class="btn btn-secondary btn-sm" onclick="pickContactForCustomer()" style="flex:1;display:none;">
+          📱 Pick from Contacts
+        </button>
+      </div>
+      
+      <!-- Customer List -->
+      <div id="customerListContainer" style="max-height:400px;overflow-y:auto;">
+        <div class="loading" style="padding:40px;"><div class="spinner"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Hidden CSV input -->
+<input type="file" id="customerCSVInput" accept=".csv" style="display:none" onchange="processCustomerCSV(event)">
+
 <!-- Hidden file input for import -->
 <input type="file" id="importFileInput" accept=".json" style="display:none" onchange="processImport(event)">
+
+<!-- AI Order Entry Modal -->
+<div class="modal-overlay" id="aiOrderModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <h3>📸 New order using AI</h3>
+      <button class="modal-close" onclick="closeModal('aiOrderModal')">✕</button>
+    </div>
+    <div class="modal-body" style="padding:16px;">
+      <!-- Upload Section -->
+      <div id="aiUploadSection">
+        <div style="background:linear-gradient(135deg,#FF6B00,#FFB300);border-radius:12px;padding:20px;text-align:center;margin-bottom:16px;">
+          <div style="font-size:48px;margin-bottom:12px;">📸</div>
+          <h3 style="color:white;margin:0 0 8px 0;">Scan Your Notebook</h3>
+          <p style="color:rgba(255,255,255,0.9);font-size:13px;margin:0;">Take a photo of your notebook page and let AI extract all entries</p>
+        </div>
+
+        <!-- Photo Upload -->
+        <div style="background:var(--card2);border-radius:12px;padding:16px;margin-bottom:16px;">
+          <label style="font-weight:700;font-size:13px;color:var(--text2);display:block;margin-bottom:8px;">UPLOAD PHOTO</label>
+          <input type="file" id="aiPhotoInput" accept="image/*" capture="environment" style="display:none" onchange="handlePhotoUpload(event)">
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-primary btn-full" onclick="document.getElementById('aiPhotoInput').click()">
+              📷 Take Photo / Upload
+            </button>
+          </div>
+        </div>
+
+        <!-- Preview -->
+        <div id="aiPhotoPreview" style="display:none;background:var(--card2);border-radius:12px;padding:16px;margin-bottom:16px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <label style="font-weight:700;font-size:13px;color:var(--text2);">PREVIEW</label>
+            <button class="btn btn-danger btn-sm" onclick="clearAIPhoto()">🗑 Remove</button>
+          </div>
+          <img id="aiPhotoPreviewImg" style="max-width:100%;border-radius:8px;border:2px solid var(--border);">
+        </div>
+
+        <!-- Tips -->
+        <div style="background:rgba(255,107,0,0.1);border:1px solid rgba(255,107,0,0.3);border-radius:10px;padding:12px;margin-bottom:16px;">
+          <div style="font-weight:700;font-size:12px;color:var(--orange);margin-bottom:6px;">💡 Tips for Best Results:</div>
+          <ul style="margin:0;padding-left:20px;font-size:12px;color:var(--text2);line-height:1.6;">
+            <li>Use good lighting (avoid shadows)</li>
+            <li>Keep page flat (no curled edges)</li>
+            <li>Write clearly in block letters</li>
+            <li>Format: ID | Name | Phone | Service</li>
+            <li>Example: ID-001 Raj 9876543210 2 Shirt DC</li>
+          </ul>
+        </div>
+
+        <!-- Process Button -->
+        <button id="aiProcessBtn" class="btn btn-success btn-full" onclick="processNotebookOCR()" disabled style="font-size:15px;padding:14px;">
+          🔍 Process & Extract Entries
+        </button>
+      </div>
+
+      <!-- Processing Section -->
+      <div id="aiProcessingSection" style="display:none;text-align:center;padding:40px 20px;">
+        <div class="spinner" style="margin:0 auto 20px;"></div>
+        <div style="font-weight:700;font-size:15px;margin-bottom:8px;" id="aiProcessStatus">Processing image...</div>
+        <div style="font-size:12px;color:var(--text3);" id="aiProcessDetail">This may take 10-30 seconds</div>
+      </div>
+
+      <!-- Results Section -->
+      <div id="aiResultsSection" style="display:none;">
+        <div style="background:var(--card2);border-radius:12px;padding:14px;margin-bottom:16px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <div style="font-weight:700;font-size:15px;">📋 Extracted Entries</div>
+              <div style="font-size:12px;color:var(--text3);" id="aiEntryCount">0 entries found</div>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="backToUpload()">⬅ Back</button>
+          </div>
+        </div>
+
+        <!-- Entries List -->
+        <div id="aiEntriesList" style="max-height:450px;overflow-y:auto;margin-bottom:16px;">
+          <!-- Entries will be dynamically inserted here -->
+        </div>
+
+        <!-- Bulk Actions -->
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-primary btn-full" onclick="saveAllAIEntries(false)" style="flex:1;">
+            💾 Save All Entries
+          </button>
+          <button class="btn btn-success btn-full" onclick="saveAllAIEntries(true)" style="flex:1;">
+            💾📱 Save & WhatsApp
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Hidden photo input -->
+<input type="file" id="aiPhotoInput" accept="image/*" style="display:none" onchange="handlePhotoUpload(event)">
 
 <!-- Toast -->
 <div class="toast" id="toast"></div>
@@ -958,6 +1222,7 @@ async function manualSync() {
     // STEP 3: Refresh UI
     if (typeof renderOrders === 'function') renderOrders();
     if (typeof renderDueDatePage === 'function') renderDueDatePage();
+    if (typeof renderDueDateNew === 'function') renderDueDateNew();
     if (typeof refreshDashboard === 'function') refreshDashboard();
     if (typeof renderCustomers === 'function') renderCustomers();
     
@@ -1013,6 +1278,7 @@ async function pullFromCloud() {
       // Refresh UI instead of reload
       if (typeof renderOrders === 'function') renderOrders();
       if (typeof renderDueDatePage === 'function') renderDueDatePage();
+      if (typeof renderDueDateNew === 'function') renderDueDateNew();
       if (typeof refreshDashboard === 'function') refreshDashboard();
     }
   } catch(e) { 
@@ -1055,6 +1321,7 @@ if (typeof firebase !== 'undefined') {
         if (needsRefresh) {
           if (typeof renderOrders === 'function') renderOrders();
           if (typeof renderDueDatePage === 'function') renderDueDatePage();
+          if (typeof renderDueDateNew === 'function') renderDueDateNew();
           if (typeof refreshDashboard === 'function') refreshDashboard();
           if (typeof renderCustomers === 'function') renderCustomers();
           // Toast removed - silent background sync
@@ -1074,13 +1341,33 @@ function initApp() {
   // Setup default users if none exist
   if (!DB.get('users')) {
     DB.set('users', [
-      { id:'u1', username:'admin', password:'admin123', name:'Admin User', role:'admin', active:true, createdAt: new Date().toISOString() },
-      { id:'u2', username:'operator', password:'op123', name:'Operator User', role:'operator', active:true, createdAt: new Date().toISOString() },
-      { id:'u3', username:'viewer', password:'view123', name:'Viewer User', role:'viewer', active:true, createdAt: new Date().toISOString() }
+      { id:'u0', username:'superadmin', password:'super123', name:'Super Admin', mobile:'9999999999', role:'superadmin', active:true, createdAt: new Date().toISOString() },
+      { id:'u1', username:'admin', password:'admin123', name:'Admin User', mobile:'9876543210', role:'admin', active:true, createdAt: new Date().toISOString() },
+      { id:'u2', username:'operator', password:'op123', name:'Operator User', mobile:'9123456789', role:'operator', active:true, createdAt: new Date().toISOString() },
+      { id:'u3', username:'viewer', password:'view123', name:'Viewer User', mobile:'9012345678', role:'viewer', active:true, createdAt: new Date().toISOString() }
     ]);
+  } else {
+    // Add superadmin to existing users if not present (for upgrade)
+    const users = DB.get('users');
+    const hasSuperAdmin = users.find(u => u.username === 'superadmin');
+    if (!hasSuperAdmin) {
+      users.unshift({
+        id: 'u0',
+        username: 'superadmin',
+        password: 'super123',
+        name: 'Super Admin',
+        mobile: '9999999999',
+        role: 'superadmin',
+        active: true,
+        createdAt: new Date().toISOString()
+      });
+      DB.set('users', users);
+      console.log('✅ Superadmin user added to existing database');
+    }
   }
   if (!DB.get('orders')) DB.set('orders', []);
   if (!DB.get('customers')) DB.set('customers', []);
+  if (!DB.get('expenses')) DB.set('expenses', []);
   if (!DB.get('orderCounter')) DB.set('orderCounter', 0);
 
   // Check if this is a tracking URL
@@ -1182,26 +1469,59 @@ Your order has been received! 🧺
 
 Order No: {orderNo}
 Services: {services}
-Total Amount: ₹{totalAmount}
+{previousBalance}
+*Total Amount: ₹{totalAmount}*
 Advance Paid: ₹{advancePaid}
-Balance Due: ₹{balanceDue}
 
 Expected Delivery: {dueDate}
 
-Thank you for choosing TurboWash Laundry!
-📞 +91-9011637090
-🕐 9AM - 9PM`,
+Thank you for choosing {shopName}!
+📞 {shopPhone}
+🕐 {shopHours}`,
       orderReady: `Dear {customerName},
 
-Your order {orderNo} is ready for pickup! ✅🎉
+Your order {orderNo} is *ready* for pickup! ✅🎉
 
 Please collect at your earliest convenience.
 
 Balance Due: ₹{balanceDue}
 
-Thank you for choosing TurboWash Laundry!
-📞 +91-9011637090`
+Thank you for choosing {shopName}!
+📞 {shopPhone}
+🕐 {shopHours}`,
+      feedbackRequest: `Hi {customerName}! 👋
+
+Thank you for choosing {shopName}! 
+
+We hope you loved our service. 😊
+
+We'd greatly appreciate if you could share your experience and leave us a review:
+
+https://g.page/r/CSwr2HBg6-ovEAE/review
+
+Your feedback helps us serve you better! 🙏
+
+- {shopName} Team`
     });
+  } else {
+    // Add feedback template to existing templates if not present
+    const templates = DB.get('whatsappTemplates');
+    if (!templates.feedbackRequest) {
+      templates.feedbackRequest = `Hi {customerName}! 👋
+
+Thank you for choosing {shopName}! 
+
+We hope you loved our service. 😊
+
+We'd greatly appreciate if you could share your experience and leave us a review:
+
+https://g.page/r/CSwr2HBg6-ovEAE/review
+
+Your feedback helps us serve you better! 🙏
+
+- {shopName} Team`;
+      DB.set('whatsappTemplates', templates);
+    }
   }
 
   // Logo removed - embedLogo kept for future use
@@ -1230,6 +1550,9 @@ function getLogo() {
 // ============================================================
 let currentUser = null;
 let currentOrderFilter = 'all';
+let currentOrderTab = 'active'; // active, completed, archive
+let archiveOffset = 0; // For pagination in archive
+let archiveLimit = 15; // Load 15 at a time
 let editingOrderId = null;
 let currentInvoiceOrderId = null;
 let dueDateRefreshInterval = null;
@@ -1262,6 +1585,7 @@ function showMainApp() {
   // Set role-based UI
   applyRoleUI();
   updateHeaderInfo();
+  updateHeaderLogo();
   refreshDashboard();
   renderOrders();
   renderCustomers();
@@ -1278,6 +1602,9 @@ function showMainApp() {
   checkOverduePopup();
   updateLastBackup();
   
+  // Migrate WhatsApp templates to new format (if needed)
+  migrateWhatsAppTemplates();
+  
   // Auto-sync from cloud on login
   if (typeof firebase !== 'undefined') {
     setTimeout(() => {
@@ -1291,15 +1618,119 @@ function showMainApp() {
 }
 
 // ============================================================
+// WHATSAPP TEMPLATE MIGRATION
+// ============================================================
+function migrateWhatsAppTemplates() {
+  const templates = DB.get('whatsappTemplates') || {};
+  const shop = DB.get('shopSettings') || {};
+  
+  // Check if templates need migration (look for old format markers)
+  const needsMigration = 
+    (templates.orderReceived && templates.orderReceived.includes('Balance Due: ₹{balanceDue}')) ||
+    (templates.orderReady && !templates.orderReady.includes('*ready*'));
+  
+  if (needsMigration) {
+    console.log('🔄 Migrating WhatsApp templates to new format...');
+    
+    // Update to new templates
+    const newTemplates = {
+      orderReceived: `Dear {customerName},
+
+Your order has been received! 🧺
+
+Order No: {orderNo}
+Services: {services}
+{previousBalance}
+*Total Amount: ₹{totalAmount}*
+Advance Paid: ₹{advancePaid}
+
+Expected Delivery: {dueDate}
+
+Thank you for choosing {shopName}!
+📞 {shopPhone}
+🕐 {shopHours}`,
+      orderReady: `Dear {customerName},
+
+Your order {orderNo} is *ready* for pickup! ✅🎉
+
+Please collect at your earliest convenience.
+
+Balance Due: ₹{balanceDue}
+
+Thank you for choosing {shopName}!
+📞 {shopPhone}
+🕐 {shopHours}`,
+      feedbackRequest: templates.feedbackRequest || `Hi {customerName}! 👋
+
+Thank you for choosing {shopName}! 
+
+We hope you loved our service. 😊
+
+We'd love to hear your feedback! Please rate us:
+⭐⭐⭐⭐⭐
+
+Leave a Google review: https://g.page/r/YOUR_GOOGLE_REVIEW_LINK/review
+
+Your feedback helps us serve you better! 🙏`
+    };
+    
+    DB.set('whatsappTemplates', newTemplates);
+    console.log('✅ WhatsApp templates updated successfully!');
+    showToast('WhatsApp templates updated! 📱', 'success');
+  }
+}
+
+// ============================================================
 // CUSTOMER TRACKING PAGE
 // ============================================================
 function checkTrackingURL() {
+  // Check for query parameter tracking (?track=CODE)
+  const urlParams = new URLSearchParams(window.location.search);
+  const trackingCode = urlParams.get('track');
+  
+  if (trackingCode) {
+    // Find order by tracking code
+    const orders = DB.get('orders') || [];
+    const order = orders.find(o => o.trackingCode === trackingCode);
+    
+    if (order) {
+      // Check if tracking is still valid (60 days)
+      const expiryDate = new Date(order.trackingExpiry);
+      const now = new Date();
+      
+      if (now <= expiryDate) {
+        showTrackingPage(order.orderNo);
+        return;
+      } else {
+        // Tracking link expired
+        showTrackingExpired();
+        return;
+      }
+    }
+  }
+  
+  // Check for path-based tracking (/track/ORDER-NUMBER)
   const path = window.location.pathname;
   const match = path.match(/\/track\/([A-Z]+-\d+)/i);
   if (match) {
     const orderNo = match[1].toUpperCase();
     showTrackingPage(orderNo);
   }
+}
+
+function showTrackingExpired() {
+  document.getElementById('mainApp').style.display = 'none';
+  document.getElementById('loginPage').style.display = 'none';
+  document.getElementById('trackingPage').style.display = 'block';
+  
+  const content = document.getElementById('trackingContent');
+  content.innerHTML = `
+    <div class="empty-state">
+      <div class="empty-icon">⏰</div>
+      <h3>Tracking Link Expired</h3>
+      <p>This tracking link has expired (valid for 60 days)</p>
+      <p style="margin-top:12px;font-size:13px;color:var(--text3);">Please contact the shop for order status.</p>
+    </div>`;
 }
 
 function showTrackingPage(orderNo) {
@@ -1421,27 +1852,31 @@ function showTrackingPage(orderNo) {
 }
 
 function applyRoleUI() {
-  const isAdmin = currentUser.role === 'admin';
-  const isOperatorPlus = currentUser.role === 'admin' || currentUser.role === 'operator';
+  const isSuperAdmin = currentUser.role === 'superadmin';
+  const isAdmin = isSuperAdmin || currentUser.role === 'admin';
+  const isOperatorPlus = isSuperAdmin || currentUser.role === 'admin' || currentUser.role === 'operator';
 
+  // Use 'flex' instead of '' because settings-item uses display:flex in CSS
   document.querySelectorAll('.admin-only').forEach(el => {
-    el.style.display = isAdmin ? '' : 'none';
+    el.style.display = isAdmin ? 'flex' : 'none';
   });
   document.querySelectorAll('.operator-plus').forEach(el => {
-    el.style.display = isOperatorPlus ? '' : 'none';
+    el.style.display = isOperatorPlus ? 'flex' : 'none';
   });
 
   // Hide FAB for viewers
-  document.getElementById('fabBtn').style.display = isOperatorPlus ? '' : 'none';
+  const fabBtn = document.getElementById('fabBtn');
+  if (fabBtn) fabBtn.style.display = isOperatorPlus ? 'flex' : 'none';
 
-  // Hide admin more section
-  if (!isAdmin) {
-    document.getElementById('adminMoreSection').style.display = 'none';
+  // Hide admin more section for non-admins
+  const adminSection = document.getElementById('adminMoreSection');
+  if (adminSection) {
+    adminSection.style.display = isAdmin ? 'block' : 'none';
   }
 }
 
 function updateHeaderInfo() {
-  const roleLabels = { admin: '👑 Admin', operator: '⚙️ Operator', viewer: '👁️ Viewer' };
+  const roleLabels = { superadmin: '⭐ Super Admin', admin: '👑 Admin', operator: '⚙️ Operator', viewer: '👁️ Viewer' };
   document.getElementById('headerUserInfo').textContent = currentUser.name + ' · ' + (roleLabels[currentUser.role] || '');
   document.getElementById('loggedInAs').textContent = 'Logged in as ' + currentUser.name;
 }
@@ -1472,6 +1907,7 @@ function switchPage(pageId) {
   if (pageId === 'pageDashboard') refreshDashboard();
   if (pageId === 'pageOrders') renderOrders();
   if (pageId === 'pageDueDate') renderDueDatePage();
+  if (pageId === 'pageDueDateNew') renderDueDateNew();
   if (pageId === 'pageCustomers') renderCustomers();
 }
 
@@ -1493,7 +1929,7 @@ function refreshDashboard() {
   document.getElementById('statReady').textContent = readyOrders.length;
   document.getElementById('statOverdue').textContent = overdueOrders.length;
 
-  if (currentUser.role === 'admin') {
+  if (currentUser.role === 'superadmin' || currentUser.role === 'admin') {
     const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const recentOrders = orders.filter(o => new Date(o.createdAt) >= thirtyDaysAgo);
     const revenue = recentOrders.reduce((sum, o) => sum + (o.paidAmount || 0), 0);
@@ -1502,6 +1938,13 @@ function refreshDashboard() {
     document.getElementById('statUnpaid').textContent = unpaid.length;
     document.getElementById('statRevenueCard').style.display = '';
     document.getElementById('statUnpaidCard').style.display = '';
+    
+    // Show and render Revenue section
+    document.getElementById('revenueSection').style.display = 'block';
+    renderRevenueChart('month'); // Default to month view
+  } else {
+    // Hide Revenue section for non-admin
+    document.getElementById('revenueSection').style.display = 'none';
   }
 
   // Overdue banner
@@ -1522,14 +1965,203 @@ function refreshDashboard() {
   document.getElementById('dashGreeting').textContent = greet;
   document.getElementById('dashDate').textContent = formatDate(new Date()) + ' | ' + (DB.get('shopSettings')||{}).name;
 
-  // Recent orders
-  const recent = [...orders].sort((a,b) => new Date(b.createdAt)-new Date(a.createdAt)).slice(0,10);
-  const container = document.getElementById('recentOrdersList');
-  if (recent.length === 0) {
-    container.innerHTML = '<div class="empty-state"><div class="empty-icon">📦</div><h3>No orders yet</h3><p>Create your first order!</p></div>';
-  } else {
-    container.innerHTML = recent.map(o => renderOrderCard(o)).join('');
+  // Recent orders - REMOVED (will be replaced with Revenue feature)
+  // const recent = [...orders].sort((a,b) => new Date(b.createdAt)-new Date(a.createdAt)).slice(0,10);
+  // const container = document.getElementById('recentOrdersList');
+  // if (recent.length === 0) {
+  //   container.innerHTML = '<div class="empty-state"><div class="empty-icon">📦</div><h3>No orders yet</h3><p>Create your first order!</p></div>';
+  // } else {
+  //   container.innerHTML = recent.map(o => renderOrderCard(o)).join('');
+  // }
+}
+
+// ============================================================
+// REVENUE SECTION
+// ============================================================
+
+let currentRevenueTab = 'month';
+
+function switchRevenueTab(tab, el) {
+  currentRevenueTab = tab;
+  
+  // Update tab styling
+  document.querySelectorAll('.revenue-tab').forEach(t => {
+    t.style.border = '2px solid var(--border)';
+    t.style.background = 'white';
+    t.style.color = 'var(--text2)';
+  });
+  el.style.border = '2px solid var(--orange)';
+  el.style.background = 'var(--orange)';
+  el.style.color = 'white';
+  
+  // Render chart
+  renderRevenueChart(tab);
+}
+
+function renderRevenueChart(period) {
+  const orders = DB.get('orders') || [];
+  
+  // Filter only paid orders (paid_delivered status)
+  const paidOrders = orders.filter(o => o.status === 'paid_delivered');
+  
+  let chartData = [];
+  
+  if (period === 'year') {
+    chartData = getYearlyRevenue(paidOrders);
+  } else if (period === 'month') {
+    chartData = getMonthlyRevenue(paidOrders);
+  } else if (period === 'week') {
+    chartData = getWeeklyRevenue(paidOrders);
+  } else if (period === 'daily') {
+    chartData = getDailyRevenue(paidOrders);
   }
+  
+  // Render bar chart
+  renderBarChart(chartData);
+}
+
+function getYearlyRevenue(paidOrders) {
+  const currentYear = new Date().getFullYear();
+  const data = [];
+  
+  // Show last 3 years + current year (or just current if no data)
+  for (let year = currentYear - 3; year <= currentYear; year++) {
+    const yearOrders = paidOrders.filter(o => {
+      const orderYear = new Date(o.createdAt).getFullYear();
+      return orderYear === year;
+    });
+    
+    const revenue = yearOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+    data.push({ label: year.toString(), value: revenue });
+  }
+  
+  return data;
+}
+
+function getMonthlyRevenue(paidOrders) {
+  const currentYear = new Date().getFullYear();
+  const data = [];
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  
+  // Show all 12 months of current year
+  for (let month = 0; month < 12; month++) {
+    const monthOrders = paidOrders.filter(o => {
+      const orderDate = new Date(o.createdAt);
+      return orderDate.getFullYear() === currentYear && orderDate.getMonth() === month;
+    });
+    
+    const revenue = monthOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+    data.push({ label: monthNames[month], value: revenue });
+  }
+  
+  return data;
+}
+
+function getWeeklyRevenue(paidOrders) {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+  const data = [];
+  
+  // Get first and last day of current month
+  const firstDay = new Date(currentYear, currentMonth, 1);
+  const lastDay = new Date(currentYear, currentMonth + 1, 0);
+  
+  // Calculate weeks in current month (max 5 weeks)
+  for (let week = 1; week <= 5; week++) {
+    const weekStart = new Date(firstDay);
+    weekStart.setDate(1 + (week - 1) * 7);
+    
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    
+    // Stop if week starts after month ends
+    if (weekStart > lastDay) break;
+    
+    // Adjust weekEnd to not exceed month
+    if (weekEnd > lastDay) weekEnd.setTime(lastDay.getTime());
+    
+    const weekOrders = paidOrders.filter(o => {
+      const orderDate = new Date(o.createdAt);
+      return orderDate >= weekStart && orderDate <= weekEnd;
+    });
+    
+    const revenue = weekOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+    data.push({ label: `Week ${week}`, value: revenue });
+  }
+  
+  return data;
+}
+
+function getDailyRevenue(paidOrders) {
+  const data = [];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  // Show last 30 days
+  for (let i = 29; i >= 0; i--) {
+    const date = new Date(today);
+    date.setDate(date.getDate() - i);
+    
+    const dateStr = date.toISOString().split('T')[0];
+    const dayLabel = date.getDate() + ' ' + date.toLocaleDateString('en-US', { month: 'short' });
+    
+    const dayOrders = paidOrders.filter(o => {
+      return o.createdAt && o.createdAt.startsWith(dateStr);
+    });
+    
+    const revenue = dayOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+    data.push({ label: dayLabel, value: revenue });
+  }
+  
+  return data;
+}
+
+function renderBarChart(data) {
+  const container = document.getElementById('revenueChartContainer');
+  
+  if (!data || data.length === 0) {
+    container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3);">No revenue data available</div>';
+    return;
+  }
+  
+  // Find max value for scaling
+  const maxValue = Math.max(...data.map(d => d.value), 1);
+  
+  // Calculate total revenue
+  const totalRevenue = data.reduce((sum, d) => sum + d.value, 0);
+  
+  // Render chart
+  let html = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid var(--border);">
+      <div>
+        <div style="font-size:12px;color:var(--text3);font-weight:600;text-transform:uppercase;">Total Revenue</div>
+        <div style="font-size:24px;font-weight:700;color:var(--orange);margin-top:4px;">₹${totalRevenue.toFixed(0)}</div>
+      </div>
+      <div style="font-size:11px;color:var(--text3);">${data.length} ${currentRevenueTab === 'year' ? 'years' : currentRevenueTab === 'month' ? 'months' : currentRevenueTab === 'week' ? 'weeks' : 'days'}</div>
+    </div>
+    
+    <div style="display:flex;gap:12px;overflow-x:auto;padding-bottom:12px;">
+  `;
+  
+  data.forEach(item => {
+    const barHeight = maxValue > 0 ? (item.value / maxValue) * 150 : 0;
+    const barColor = item.value > 0 ? 'var(--orange)' : '#e0e0e0';
+    
+    html += `
+      <div style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:8px;min-width:${currentRevenueTab === 'daily' ? '50px' : '60px'};">
+        <div style="font-size:11px;font-weight:700;color:var(--orange);min-height:20px;">${item.value > 0 ? '₹' + item.value.toFixed(0) : ''}</div>
+        <div style="width:100%;height:150px;display:flex;align-items:flex-end;justify-content:center;">
+          <div style="width:${currentRevenueTab === 'daily' ? '30px' : '40px'};height:${barHeight}px;background:${barColor};border-radius:6px 6px 0 0;transition:all 0.3s;"></div>
+        </div>
+        <div style="font-size:10px;font-weight:600;color:var(--text2);text-align:center;line-height:1.2;">${item.label}</div>
+      </div>
+    `;
+  });
+  
+  html += '</div>';
+  
+  container.innerHTML = html;
 }
 
 // ============================================================
@@ -1559,6 +2191,29 @@ function checkIfNeedsNotification(order) {
   
   // Status changed but not notified
   return true;
+}
+
+function dismissStatusNotification(orderId) {
+  const orders = DB.get('orders') || [];
+  const order = orders.find(o => o.id === orderId);
+  if (!order) return;
+  
+  // Mark notification as sent for current status (dismissing it)
+  if (!order.notificationsSent) order.notificationsSent = [];
+  
+  // Add current status to notificationsSent to dismiss the banner
+  const alreadySent = order.notificationsSent.some(n => n.status === order.status);
+  if (!alreadySent) {
+    order.notificationsSent.push({
+      status: order.status,
+      sentAt: new Date().toISOString(),
+      method: 'dismissed' // Mark as dismissed by user
+    });
+  }
+  
+  DB.set('orders', orders);
+  showToast('Notification dismissed', 'info');
+  renderOrders(); // Refresh to remove the banner
 }
 
 function isOverdue(order) {
@@ -1645,12 +2300,24 @@ function renderOrderCard(order) {
         📄 Share Invoice
       </button>
     </div>
-    ${needsNotification ? `<div style="margin-top:8px;padding:8px 10px;background:linear-gradient(135deg,#FFB300,#F57F17);border-radius:8px;display:flex;align-items:center;gap:8px;">
+    ${order.status === 'paid_delivered' ? `<div style="margin-top:6px;">
+      ${order.feedbackRequested ? `<div style="padding:8px 10px;background:rgba(76,175,80,0.1);border:1.5px solid #4CAF50;border-radius:8px;color:#2E7D32;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:4px;">
+        ✅ Feedback Sent
+      </div>` : `<button onclick="event.stopPropagation();sendFeedbackRequest('${order.id}')"
+        style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid #9C27B0;background:rgba(156,39,176,0.1);color:#7B1FA2;font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;">
+        ⭐ Ask for Feedback
+      </button>`}
+    </div>` : ''}
+    ${needsNotification ? `<div style="margin-top:8px;padding:8px 10px;background:linear-gradient(135deg,#FFB300,#F57F17);border-radius:8px;display:flex;align-items:center;gap:8px;position:relative;">
       <span style="font-size:16px;">📢</span>
       <div style="flex:1;color:white;">
         <div style="font-size:11px;font-weight:700;">Status Updated!</div>
         <div style="font-size:10px;opacity:0.9;">Send notification to customer</div>
       </div>
+      <button onclick="event.stopPropagation();dismissStatusNotification('${order.id}')" 
+        style="position:absolute;top:4px;right:4px;width:20px;height:20px;border-radius:50%;background:rgba(0,0,0,0.3);color:white;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;padding:0;line-height:1;">
+        ✕
+      </button>
     </div>` : ''}
   </div>`;
 }
@@ -1659,13 +2326,77 @@ function renderOrderCard(order) {
 // ORDERS PAGE
 // ============================================================
 function renderOrders() {
-  const orders = DB.get('orders') || [];
+  const allOrders = DB.get('orders') || [];
   const search = (document.getElementById('orderSearch')||{}).value || '';
-  let filtered = orders;
-
-  if (currentOrderFilter !== 'all') {
-    filtered = filtered.filter(o => o.status === currentOrderFilter);
+  const now = new Date();
+  
+  // Calculate completed date (30 days ago)
+  const thirtyDaysAgo = new Date(now);
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  
+  // Helper: Check if order is completed (paid_delivered or cancelled)
+  const isCompleted = (o) => {
+    return o.status === 'paid_delivered' || o.status === 'cancelled';
+  };
+  
+  // Helper: Get completion date
+  const getCompletedDate = (o) => {
+    if (!isCompleted(o)) return null;
+    // Use updatedAt or createdAt as completion date approximation
+    return new Date(o.updatedAt || o.createdAt);
+  };
+  
+  // Filter by tab
+  let filtered = [];
+  
+  if (currentOrderTab === 'active') {
+    // Active: All orders that are NOT completed
+    filtered = allOrders.filter(o => !isCompleted(o));
+    
+    // Apply sub-filter
+    if (currentOrderFilter !== 'all') {
+      filtered = filtered.filter(o => o.status === currentOrderFilter);
+    }
+  } 
+  else if (currentOrderTab === 'completed') {
+    // Completed: Orders completed in last 30 days
+    filtered = allOrders.filter(o => {
+      if (!isCompleted(o)) return false;
+      const completedDate = getCompletedDate(o);
+      return completedDate && completedDate >= thirtyDaysAgo;
+    });
+    
+    // Apply sub-filter
+    if (currentOrderFilter === 'paid_delivered') {
+      filtered = filtered.filter(o => o.status === 'paid_delivered');
+    } else if (currentOrderFilter === 'cancelled') {
+      filtered = filtered.filter(o => o.status === 'cancelled');
+    }
+  } 
+  else if (currentOrderTab === 'archive') {
+    // Archive: Completed orders older than 30 days
+    filtered = allOrders.filter(o => {
+      if (!isCompleted(o)) return false;
+      const completedDate = getCompletedDate(o);
+      return completedDate && completedDate < thirtyDaysAgo;
+    });
+    
+    // Sort by completion date (newest first)
+    filtered.sort((a,b) => {
+      const dateA = getCompletedDate(a);
+      const dateB = getCompletedDate(b);
+      return dateB - dateA;
+    });
+    
+    // Apply pagination: only show archiveLimit records starting from archiveOffset
+    const totalArchive = filtered.length;
+    filtered = filtered.slice(archiveOffset, archiveOffset + archiveLimit);
+    
+    // Update Load More button
+    updateLoadMoreButton(totalArchive);
   }
+  
+  // Apply search filter
   if (search.trim()) {
     const q = search.toLowerCase();
     filtered = filtered.filter(o =>
@@ -1674,14 +2405,135 @@ function renderOrders() {
       o.orderNo.toLowerCase().includes(q)
     );
   }
-  filtered.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
-
+  
+  // Sort (except archive which is already sorted)
+  if (currentOrderTab !== 'archive') {
+    filtered.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+  }
+  
+  // Update tab counts
+  updateTabCounts(allOrders, thirtyDaysAgo);
+  
+  // Render orders
   const container = document.getElementById('ordersList');
   if (filtered.length === 0) {
-    container.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><h3>No orders found</h3><p>Try different filters or create a new order</p></div>';
+    let emptyMessage = 'No orders found';
+    if (currentOrderTab === 'active') emptyMessage = 'No active orders';
+    else if (currentOrderTab === 'completed') emptyMessage = 'No completed orders in last 30 days';
+    else if (currentOrderTab === 'archive') emptyMessage = 'No archived orders';
+    
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><h3>${emptyMessage}</h3><p>Try different filters</p></div>`;
   } else {
     container.innerHTML = filtered.map(o => renderOrderCard(o)).join('');
   }
+}
+
+function updateTabCounts(orders, thirtyDaysAgo) {
+  const isCompleted = (o) => o.status === 'paid_delivered' || o.status === 'cancelled';
+  const getCompletedDate = (o) => {
+    if (!isCompleted(o)) return null;
+    return new Date(o.updatedAt || o.createdAt);
+  };
+  
+  // Active count
+  const activeCount = orders.filter(o => !isCompleted(o)).length;
+  
+  // Completed count (last 30 days)
+  const completedCount = orders.filter(o => {
+    if (!isCompleted(o)) return false;
+    const completedDate = getCompletedDate(o);
+    return completedDate && completedDate >= thirtyDaysAgo;
+  }).length;
+  
+  // Archive count (> 30 days)
+  const archiveCount = orders.filter(o => {
+    if (!isCompleted(o)) return false;
+    const completedDate = getCompletedDate(o);
+    return completedDate && completedDate < thirtyDaysAgo;
+  }).length;
+  
+  // Update UI
+  if (document.getElementById('activeCount')) {
+    document.getElementById('activeCount').textContent = activeCount;
+  }
+  if (document.getElementById('completedCount')) {
+    document.getElementById('completedCount').textContent = completedCount;
+  }
+  if (document.getElementById('archiveCount')) {
+    document.getElementById('archiveCount').textContent = archiveCount;
+  }
+}
+
+function updateLoadMoreButton(totalArchive) {
+  const loadMoreContainer = document.getElementById('loadMoreContainer');
+  const loadMoreBtn = document.getElementById('loadMoreBtn');
+  const archiveInfo = document.getElementById('archiveInfo');
+  
+  if (currentOrderTab === 'archive' && totalArchive > 0) {
+    loadMoreContainer.style.display = 'block';
+    
+    const showing = Math.min(archiveOffset + archiveLimit, totalArchive);
+    archiveInfo.textContent = `Showing ${archiveOffset + 1}-${showing} of ${totalArchive} orders`;
+    
+    // Hide button if all loaded
+    if (showing >= totalArchive) {
+      loadMoreBtn.style.display = 'none';
+    } else {
+      loadMoreBtn.style.display = 'block';
+      const remaining = totalArchive - showing;
+      loadMoreBtn.textContent = `Load More (${Math.min(15, remaining)} orders)`;
+    }
+  } else {
+    loadMoreContainer.style.display = 'none';
+  }
+}
+
+function switchOrderTab(tab, el) {
+  currentOrderTab = tab;
+  archiveOffset = 0; // Reset pagination when switching tabs
+  
+  // Update tab styling
+  document.querySelectorAll('.main-tab').forEach(t => {
+    t.classList.remove('active');
+    t.style.borderBottomColor = 'transparent';
+    t.style.color = 'var(--text2)';
+  });
+  el.classList.add('active');
+  el.style.borderBottomColor = 'var(--orange)';
+  el.style.color = 'var(--orange)';
+  
+  // Reset sub-filter to "All"
+  currentOrderFilter = 'all';
+  
+  // Update sub-filter tabs based on selected main tab
+  const filterTabs = document.getElementById('orderFilterTabs');
+  
+  if (tab === 'active') {
+    filterTabs.innerHTML = `
+      <div class="filter-tab active" onclick="setOrderFilter('all',this)">All</div>
+      <div class="filter-tab" onclick="setOrderFilter('received',this)">Received</div>
+      <div class="filter-tab" onclick="setOrderFilter('inprogress',this)">In-Progress</div>
+      <div class="filter-tab" onclick="setOrderFilter('ready',this)">Ready</div>
+      <div class="filter-tab" onclick="setOrderFilter('unpaid_delivered',this)">Unpaid</div>
+    `;
+  } else if (tab === 'completed') {
+    filterTabs.innerHTML = `
+      <div class="filter-tab active" onclick="setOrderFilter('all',this)">All</div>
+      <div class="filter-tab" onclick="setOrderFilter('paid_delivered',this)">Paid</div>
+      <div class="filter-tab" onclick="setOrderFilter('cancelled',this)">Cancelled</div>
+    `;
+  } else if (tab === 'archive') {
+    filterTabs.innerHTML = `
+      <div class="filter-tab active" onclick="setOrderFilter('all',this)">All</div>
+    `;
+  }
+  
+  renderOrders();
+}
+
+function loadMoreArchive() {
+  archiveOffset += archiveLimit;
+  renderOrders();
 }
 
 function setOrderFilter(filter, el) {
@@ -1733,6 +2585,158 @@ function renderDueDatePage() {
 
   const lastUpdated = `<div style="text-align:center;padding:8px;font-size:11px;color:var(--text3);">Last updated: ${formatDateTime(new Date())}</div>`;
   document.getElementById('dueDateContent').innerHTML = html + lastUpdated;
+}
+
+// ============================================================
+// DUE DATE NEW PAGE (KANBAN STYLE)
+// ============================================================
+
+function renderDueDateNew() {
+  const allOrders = DB.get('orders') || [];
+  
+  // Filter out delivered/cancelled orders
+  const activeOrders = allOrders.filter(o => 
+    !['paid_delivered', 'unpaid_delivered', 'cancelled'].includes(o.status)
+  );
+  
+  // Generate date range: Last 30 days + Today + Next 30 days (2 months total)
+  const dateRange = generateDateRange();
+  
+  // Group orders by due date
+  const ordersByDate = {};
+  dateRange.forEach(date => {
+    ordersByDate[date] = activeOrders.filter(o => o.dueDate === date);
+  });
+  
+  // Render all date columns
+  const container = document.getElementById('dueDateNewContainer');
+  container.innerHTML = dateRange.map(date => renderDateColumn(date, ordersByDate[date])).join('');
+  
+  // Auto-scroll to today on first load
+  setTimeout(() => {
+    const todayColumn = document.getElementById('date-column-today');
+    if (todayColumn) {
+      todayColumn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
+  }, 100);
+}
+
+function generateDateRange() {
+  const dates = [];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  // Last 30 days (1 month)
+  for (let i = 30; i >= 1; i--) {
+    const date = new Date(today);
+    date.setDate(date.getDate() - i);
+    dates.push(date.toISOString().split('T')[0]);
+  }
+  
+  // Today
+  dates.push(today.toISOString().split('T')[0]);
+  
+  // Next 30 days (1 month)
+  for (let i = 1; i <= 30; i++) {
+    const date = new Date(today);
+    date.setDate(date.getDate() + i);
+    dates.push(date.toISOString().split('T')[0]);
+  }
+  
+  return dates;
+}
+
+function renderDateColumn(dateStr, orders) {
+  const today = new Date().toISOString().split('T')[0];
+  const date = new Date(dateStr);
+  const isToday = dateStr === today;
+  const isPast = dateStr < today;
+  const hasOrders = orders && orders.length > 0;
+  
+  // Determine tag
+  let tag = '';
+  let tagStyle = '';
+  if (isPast && hasOrders) {
+    tag = '🚨 OVERDUE';
+    tagStyle = 'background:#F44336;color:white;padding:4px 8px;border-radius:4px;font-size:10px;font-weight:700;';
+  } else if (isToday && hasOrders) {
+    tag = '⚠️ DUE TODAY';
+    tagStyle = 'background:#FFB300;color:white;padding:4px 8px;border-radius:4px;font-size:10px;font-weight:700;';
+  }
+  
+  // Format date header - compact format "Thu 5 Mar"
+  const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+  const dateNum = date.getDate();
+  const monthName = date.toLocaleDateString('en-US', { month: 'short' });
+  
+  // Pre-calculate styles to avoid nested template literals
+  const headerBg = isToday ? 'var(--orange)' : 'var(--card)';
+  const headerColor = isToday ? 'white' : 'var(--text)';
+  const headerBorder = isToday ? 'var(--orange)' : 'var(--border)';
+  const containerBg = isToday ? 'rgba(255,107,0,0.05)' : 'var(--bg)';
+  const containerBorder = isToday ? 'var(--orange)' : 'var(--border)';
+  const columnId = isToday ? 'date-column-today' : '';
+  
+  return `
+    <div class="date-column" id="${columnId}" style="min-width:120px;max-width:120px;flex-shrink:0;">
+      <!-- Date Header - Compact -->
+      <div style="background:${headerBg};color:${headerColor};padding:6px 6px;border-radius:8px 8px 0 0;border:2px solid ${headerBorder};border-bottom:none;text-align:center;">
+        <div style="font-size:11px;font-weight:700;line-height:1.2;">${dayName} ${dateNum} ${monthName}</div>
+        ${tag ? '<div style="margin-top:4px;' + tagStyle + '">' + tag + '</div>' : ''}
+      </div>
+      
+      <!-- Orders Container - Scrollable -->
+      <div style="background:${containerBg};border:2px solid ${containerBorder};border-top:none;border-radius:0 0 8px 8px;padding:6px;min-height:100px;max-height:400px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding-bottom:20px;">
+        ${hasOrders ? orders.map(o => renderCompactOrderCard(o)).join('') : `
+          <div style="text-align:center;padding:16px 6px;color:var(--text3);font-size:10px;">
+            No orders<br>due today
+          </div>
+        `}
+      </div>
+    </div>
+  `;
+}
+
+function renderCompactOrderCard(order) {
+  const statusColors = {
+    received: '#2196F3',
+    inprogress: '#FF9800',
+    ready: '#4CAF50',
+    unpaid_delivered: '#9C27B0'
+  };
+  const statusLabels = {
+    received: 'Received',
+    inprogress: 'In-Progress',
+    ready: 'Ready',
+    unpaid_delivered: 'Unpaid'
+  };
+  
+  const statusColor = statusColors[order.status] || '#757575';
+  const statusLabel = statusLabels[order.status] || order.status;
+  
+  return `
+    <div onclick="showOrderDetail('${order.id}')" style="background:white;border-radius:5px;padding:6px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,0.1);transition:transform 0.2s,box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 3px 6px rgba(0,0,0,0.15)'" onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(0,0,0,0.1)'">
+      <!-- Order ID -->
+      <div style="font-size:9px;color:var(--text3);font-weight:600;margin-bottom:3px;">${order.orderNo}</div>
+      
+      <!-- Customer Name (LARGE) -->
+      <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:4px;line-height:1.2;word-wrap:break-word;">${order.customerName}</div>
+      
+      <!-- Status Badge -->
+      <div style="display:inline-block;padding:2px 6px;border-radius:10px;background:${statusColor};color:white;font-size:8px;font-weight:700;margin-bottom:4px;">${statusLabel}</div>
+      
+      <!-- Amount -->
+      <div style="font-size:11px;font-weight:700;color:var(--orange);">₹${(order.totalAmount || 0).toFixed(0)}</div>
+    </div>
+  `;
+}
+
+function scrollToToday() {
+  const todayColumn = document.getElementById('date-column-today');
+  if (todayColumn) {
+    todayColumn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    showToast('📍 Scrolled to Today', 'info');
+  }
 }
 
 function checkOverduePopup() {
@@ -1798,6 +2802,15 @@ function renderOrderForm(order, prefillCustomer) {
         <input type="text" id="f_customerName" value="${order?order.customerName:prefillCustomer?prefillCustomer.name:''}" placeholder="Enter customer name" oninput="searchCustomerSuggest(this.value)">
         <div id="customerSuggestions" style="background:white;border:1px solid var(--border);border-radius:8px;margin-top:4px;overflow:hidden;display:none;"></div>
       </div>
+      
+      <!-- Contact Picker Button (Android only) -->
+      <div id="contactPickerButton" style="display:none;margin-bottom:14px;">
+        <button type="button" onclick="pickFromContacts()"
+          style="background:linear-gradient(135deg,#4CAF50,#45a049);border:none;color:white;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;padding:10px 16px;border-radius:8px;width:100%;justify-content:center;box-shadow:0 2px 8px rgba(76,175,80,0.3);transition:all 0.2s;">
+          📞 Pick from Phone Contacts
+        </button>
+      </div>
+      
       <div class="field-row">
         <div class="field">
           <label>Phone *</label>
@@ -1832,9 +2845,10 @@ function renderOrderForm(order, prefillCustomer) {
           <label>Due Date *</label>
           <div class="due-options">
             <div class="due-opt" onclick="setDueDate('same',this)">Same Day</div>
+            <div class="due-opt" onclick="setDueDate('1',this)">Tomorrow</div>
             <div class="due-opt" onclick="setDueDate('2',this)">+2 Days</div>
             <div class="due-opt" onclick="setDueDate('4',this)">+4 Days</div>
-            <div class="due-opt" onclick="setDueDate('5',this)">+5 Days</div>
+            <div class="due-opt" onclick="setDueDate('7',this)">+1 Week</div>
             <div class="due-opt" onclick="setDueDate('custom',this)">Custom</div>
           </div>
           <input type="date" id="f_dueDate" value="${order?order.dueDate:today}" min="${today}" style="margin-top:6px;">
@@ -1906,6 +2920,9 @@ function renderOrderForm(order, prefillCustomer) {
 
   document.getElementById('orderModalBody').innerHTML = html;
 
+  // Check if Contact Picker API is supported and show button
+  checkContactPickerSupport();
+
   // Auto show address if order has one
   if (order && order.customerAddress) {
     setTimeout(() => autoShowAddress(order.customerAddress), 100);
@@ -1944,6 +2961,188 @@ function setDueDate(type, el) {
   document.getElementById('f_dueDate').value = date.toISOString().split('T')[0];
 }
 
+// ============================================================
+// CONTACT PICKER (Android)
+// ============================================================
+
+function checkContactPickerSupport() {
+  // Check if Contact Picker API is supported (Android Chrome, Edge, Samsung Internet)
+  if ('contacts' in navigator && 'ContactsManager' in window) {
+    const button = document.getElementById('contactPickerButton');
+    if (button) {
+      button.style.display = 'block';
+    }
+    const customerButton = document.getElementById('customerContactPickerButton');
+    if (customerButton) {
+      customerButton.style.display = 'block';
+    }
+  }
+}
+
+async function pickFromContacts() {
+  try {
+    // Check if API is supported
+    if (!('contacts' in navigator)) {
+      showToast('Contact picker not supported on this device', 'error');
+      return;
+    }
+
+    // Request contacts with name and tel properties
+    const contacts = await navigator.contacts.select(
+      ['name', 'tel'],
+      { multiple: false }
+    );
+
+    if (contacts && contacts.length > 0) {
+      const contact = contacts[0];
+      
+      // Get name
+      const name = contact.name && contact.name.length > 0 ? contact.name[0] : '';
+      
+      // Get phone (remove spaces, dashes, parentheses)
+      let phone = '';
+      if (contact.tel && contact.tel.length > 0) {
+        phone = contact.tel[0].replace(/[\s\-\(\)]/g, '');
+        
+        // If phone starts with country code, try to extract 10 digits
+        if (phone.startsWith('+91')) {
+          phone = phone.substring(3); // Remove +91
+        } else if (phone.startsWith('91') && phone.length > 10) {
+          phone = phone.substring(2); // Remove 91
+        }
+        
+        // Take last 10 digits if longer
+        if (phone.length > 10) {
+          phone = phone.slice(-10);
+        }
+      }
+
+      // Fill the form
+      if (name) {
+        document.getElementById('f_customerName').value = name;
+      }
+      
+      if (phone && phone.length === 10) {
+        document.getElementById('f_customerPhone').value = phone;
+        showToast('Contact selected! ✅', 'success');
+      } else if (phone) {
+        document.getElementById('f_customerPhone').value = phone;
+        showToast('Phone number may need adjustment', 'warning');
+      } else {
+        if (name) {
+          showToast('Name filled, but no phone found', 'warning');
+        } else {
+          showToast('Could not get contact info', 'error');
+        }
+      }
+
+      // Hide suggestions if showing
+      document.getElementById('customerSuggestions').style.display = 'none';
+      
+    } else {
+      showToast('No contact selected', 'warning');
+    }
+    
+  } catch (error) {
+    console.error('Contact picker error:', error);
+    
+    // User canceled or error occurred
+    if (error.name === 'AbortError') {
+      // User canceled - don't show error
+      return;
+    }
+    
+    showToast('Could not access contacts', 'error');
+  }
+}
+
+async function pickContactForCustomer() {
+  try {
+    // Check if API is supported
+    if (!('contacts' in navigator)) {
+      showToast('Contact picker not supported on this device', 'error');
+      return;
+    }
+
+    // Request contacts with name and tel properties
+    const contacts = await navigator.contacts.select(
+      ['name', 'tel'],
+      { multiple: false }
+    );
+
+    if (contacts && contacts.length > 0) {
+      const contact = contacts[0];
+      
+      // Get name
+      const name = contact.name && contact.name.length > 0 ? contact.name[0] : '';
+      
+      // Get phone (remove spaces, dashes, parentheses)
+      let phone = '';
+      if (contact.tel && contact.tel.length > 0) {
+        phone = contact.tel[0].replace(/[\s\-\(\)]/g, '');
+        
+        // If phone starts with country code, try to extract 10 digits
+        if (phone.startsWith('+91')) {
+          phone = phone.substring(3); // Remove +91
+        } else if (phone.startsWith('91') && phone.length > 10) {
+          phone = phone.substring(2); // Remove 91
+        }
+        
+        // Take last 10 digits if longer
+        if (phone.length > 10) {
+          phone = phone.slice(-10);
+        }
+      }
+
+      // Validate we have at least name and phone
+      if (!name || !phone) {
+        showToast('Contact must have name and phone number', 'error');
+        return;
+      }
+
+      // Check if customer already exists
+      const customers = DB.get('customers') || [];
+      const exists = customers.find(c => c.phone === phone);
+      
+      if (exists) {
+        showToast(`Customer "${exists.name}" already exists with this number`, 'warning');
+        return;
+      }
+
+      // Add customer directly
+      const newCustomer = {
+        id: 'cust_' + Date.now(),
+        name: name,
+        phone: phone,
+        email: '',
+        address: '',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      customers.push(newCustomer);
+      DB.set('customers', customers);
+      
+      renderCustomerList();
+      showToast(`Customer "${name}" added! ✅`, 'success');
+      
+    } else {
+      showToast('No contact selected', 'warning');
+    }
+    
+  } catch (error) {
+    console.error('Contact picker error:', error);
+    
+    // User canceled or error occurred
+    if (error.name === 'AbortError') {
+      // User canceled - don't show error
+      return;
+    }
+    
+    showToast('Could not access contacts', 'error');
+  }
+}
+
 let serviceItemsData = {};
 
 function toggleService(id, name, pricingType, el) {
@@ -1952,7 +3151,17 @@ function toggleService(id, name, pricingType, el) {
     if (!serviceItemsData[id]) {
       const autoName = getAutoName(id, pricingType);
       const autoPrice = getDefaultPrice(id);
-      serviceItemsData[id] = [{ name:autoName, qty:1, price:autoPrice, subtotal:0, discount:0, details:'' }];
+      const discountPerUnit = getDefaultDiscount(id); // This gets per-unit discount from settings
+      serviceItemsData[id] = [{ 
+        name: autoName, 
+        qty: 1, 
+        price: autoPrice, 
+        discountPerUnit: discountPerUnit,
+        discount: discountPerUnit, // For qty=1, total equals per-unit
+        subtotal: 0, 
+        details: '',
+        isCustom: false
+      }];
     }
     renderServiceItems(id, name, pricingType, serviceItemsData[id]);
   } else {
@@ -1990,46 +3199,61 @@ function renderServiceItems(serviceId, serviceName, pricingType, existingItems) 
         <span style="font-size:11px;color:var(--text2);">${pricingType==='per_kg'?'Per KG':'Per Item'}</span>
       </div>
       <div style="overflow-x:auto;">
-      <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:340px;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
         <thead>
           <tr style="background:rgba(255,107,0,0.08);">
-            <th style="padding:6px 4px;text-align:left;font-size:10px;color:var(--text2);font-weight:700;min-width:90px;">ITEM</th>
-            <th style="padding:6px 4px;text-align:center;font-size:10px;color:var(--text2);font-weight:700;width:80px;">${pricingType==='per_kg'?'KG':'QTY'}</th>
+            <th style="padding:6px 4px;text-align:left;font-size:10px;color:var(--text2);font-weight:700;">ITEM</th>
+            <th style="padding:6px 4px;text-align:center;font-size:10px;color:var(--text2);font-weight:700;width:70px;">${pricingType==='per_kg'?'KG':'QTY'}</th>
             <th style="padding:6px 4px;text-align:center;font-size:10px;color:var(--text2);font-weight:700;width:65px;">PRICE</th>
-            <th style="padding:6px 4px;text-align:center;font-size:10px;color:var(--text2);font-weight:700;width:55px;">DISC(₹)</th>
-            <th style="padding:6px 4px;text-align:right;font-size:10px;color:var(--orange);font-weight:700;width:50px;">SUB</th>
-            <th style="width:24px;"></th>
+            <th style="padding:6px 4px;text-align:right;font-size:10px;color:var(--orange);font-weight:700;width:60px;">SUB</th>
           </tr>
         </thead>
         <tbody>
           ${items.map((item,i) => `
-            <tr style="border-bottom:1px solid var(--border);">
+            <tr style="border-bottom:1px solid rgba(0,0,0,0.05);">
             <td style="padding:5px 4px;">
-              <div style="position:relative;">
-                <input list="items_${serviceId}_${i}" type="text" value="${item.name||''}"
-                  onchange="updateItemField('${serviceId}',${i},'name',this.value);autoFillPriceOnChange('${serviceId}',${i},'${serviceName}')"
-                  oninput="updateItemField('${serviceId}',${i},'name',this.value)"
-                  placeholder="${getServicePlaceholder(serviceId)}"
-                  style="width:100%;min-width:85px;border:1px solid var(--border);border-radius:5px;padding:5px 20px 5px 6px;font-size:12px;font-family:'Poppins',sans-serif;outline:none;box-sizing:border-box;">
-                <span style="position:absolute;right:6px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--text3);font-size:10px;">▼</span>
-                <datalist id="items_${serviceId}_${i}">
-                  ${savedItems.map(si=>`<option value="${si.name}">`).join('')}
-                </datalist>
-              </div>
+              <select onchange="handleItemSelect('${serviceId}',${i},this.value,'${serviceName}')"
+                style="width:100%;border:1px solid var(--border);border-radius:5px;padding:5px 6px;font-size:12px;font-family:'Poppins',sans-serif;outline:none;box-sizing:border-box;background:white;">
+                <option value="">Select item...</option>
+                ${savedItems.map(si=>`<option value="${si.name}" ${item.name===si.name?'selected':''}>${si.name}</option>`).join('')}
+                <option value="__custom__" ${item.isCustom?'selected':''}>✏️ Add New Item...</option>
+              </select>
+              ${item.isCustom ? `
+                <div style="margin-top:6px;padding:8px;background:rgba(255,107,0,0.08);border-radius:6px;border:1px solid var(--orange);">
+                  <input type="text" value="${item.name||''}"
+                    onchange="updateItemField('${serviceId}',${i},'name',this.value)"
+                    oninput="updateItemField('${serviceId}',${i},'name',this.value)"
+                    placeholder="Item name (e.g., Leather Jacket)"
+                    style="width:100%;border:1px solid var(--orange);border-radius:4px;padding:5px 6px;font-size:11px;margin-bottom:4px;box-sizing:border-box;">
+                  <div style="display:flex;gap:4px;">
+                    <input type="number" min="0" step="0.5" value="${item.price||''}"
+                      onchange="updateItemField('${serviceId}',${i},'price',parseFloat(this.value)||0);updateSubDisplay('${serviceId}',${i});updatePaymentSummary()"
+                      oninput="updateItemField('${serviceId}',${i},'price',parseFloat(this.value)||0)"
+                      placeholder="Price"
+                      style="flex:1;border:1px solid var(--border);border-radius:4px;padding:4px 6px;font-size:11px;text-align:center;">
+                    <input type="number" min="0" step="1" value="${item.discountPerUnit||0}"
+                      onchange="updateItemField('${serviceId}',${i},'discountPerUnit',parseFloat(this.value)||0);updateDiscountFromQty('${serviceId}',${i});updateSubDisplay('${serviceId}',${i});updatePaymentSummary()"
+                      oninput="updateItemField('${serviceId}',${i},'discountPerUnit',parseFloat(this.value)||0)"
+                      placeholder="Disc/unit"
+                      style="flex:1;border:1px solid #29B6F6;border-radius:4px;padding:4px 6px;font-size:11px;text-align:center;color:#0277BD;">
+                  </div>
+                  <div style="font-size:9px;color:var(--text3);margin-top:2px;">Enter item details</div>
+                </div>
+              ` : ''}
             </td>
             <td style="padding:5px 4px;">
               ${pricingType==='per_kg' ? `
                 <input type="number" min="0.1" step="0.1" value="${item.qty||1}"
-                  onchange="updateItemField('${serviceId}',${i},'qty',parseFloat(this.value)||0.1);updateSubDisplay('${serviceId}',${i});updatePaymentSummary()"
-                  oninput="updateItemField('${serviceId}',${i},'qty',parseFloat(this.value)||0.1);updateSubDisplay('${serviceId}',${i});updatePaymentSummary()"
+                  onchange="updateItemField('${serviceId}',${i},'qty',parseFloat(this.value)||0.1);updateDiscountFromQty('${serviceId}',${i});updateSubDisplay('${serviceId}',${i});updatePaymentSummary()"
+                  oninput="updateItemField('${serviceId}',${i},'qty',parseFloat(this.value)||0.1)"
                   placeholder="KG"
-                  style="width:52px;text-align:center;border:1.5px solid var(--orange);border-radius:6px;padding:5px 4px;font-size:13px;font-weight:700;color:var(--orange);">
+                  style="width:50px;text-align:center;border:1.5px solid var(--orange);border-radius:6px;padding:5px 4px;font-size:13px;font-weight:700;color:var(--orange);">
               ` : `
                 <div style="display:flex;align-items:center;gap:1px;justify-content:center;">
                   <button onclick="changeQty('${serviceId}',${i},-1)" style="width:20px;height:20px;border-radius:4px;border:1px solid var(--border);background:white;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;">−</button>
                   <input type="number" min="1" step="1" value="${item.qty||1}"
-                    onchange="updateItemField('${serviceId}',${i},'qty',parseFloat(this.value)||1);updateSubDisplay('${serviceId}',${i});updatePaymentSummary()"
-                    oninput="updateItemField('${serviceId}',${i},'qty',parseFloat(this.value)||1);updateSubDisplay('${serviceId}',${i});updatePaymentSummary()"
+                    onchange="updateItemField('${serviceId}',${i},'qty',parseFloat(this.value)||1);updateDiscountFromQty('${serviceId}',${i});updateSubDisplay('${serviceId}',${i});updatePaymentSummary()"
+                    oninput="updateItemField('${serviceId}',${i},'qty',parseFloat(this.value)||1)"
                     style="width:32px;text-align:center;border:1px solid var(--border);border-radius:4px;padding:3px 1px;font-size:12px;">
                   <button onclick="changeQty('${serviceId}',${i},1)" style="width:20px;height:20px;border-radius:4px;border:none;background:var(--orange);color:white;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;">+</button>
                 </div>
@@ -2040,25 +3264,31 @@ function renderServiceItems(serviceId, serviceName, pricingType, existingItems) 
                 onchange="updateItemField('${serviceId}',${i},'price',parseFloat(this.value)||0);updateSubDisplay('${serviceId}',${i});updatePaymentSummary()"
                 oninput="updateItemField('${serviceId}',${i},'price',parseFloat(this.value)||0);updateSubDisplay('${serviceId}',${i});updatePaymentSummary()"
                 placeholder="0"
-                style="width:100%;border:1px solid var(--border);border-radius:5px;padding:5px 4px;font-size:12px;text-align:center;">
-            </td>
-            <td style="padding:5px 4px;">
-              <input type="number" min="0" step="1" value="${item.discount||0}"
-                onchange="updateItemField('${serviceId}',${i},'discount',parseFloat(this.value)||0);updateSubDisplay('${serviceId}',${i});updatePaymentSummary()"
-                oninput="updateItemField('${serviceId}',${i},'discount',parseFloat(this.value)||0);updateSubDisplay('${serviceId}',${i});updatePaymentSummary()"
-                placeholder="0"
-                style="width:100%;border:1px solid #29B6F6;border-radius:5px;padding:5px 4px;font-size:12px;text-align:center;color:#0277BD;">
+                style="width:100%;border:1px solid var(--border);border-radius:5px;padding:4px 6px;font-size:12px;text-align:center;">
             </td>
             <td style="padding:5px 4px;text-align:right;font-weight:800;font-size:13px;color:var(--orange);white-space:nowrap;">₹${calcSub(item).toFixed(0)}</td>
-            <td style="padding:5px 2px;"><button onclick="removeItemRow('${serviceId}',${i})" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:14px;padding:2px;">🗑</button></td>
           </tr>
           <tr style="border-bottom:1px solid var(--border);">
-            <td colspan="6" style="padding:5px 4px;">
-              <input type="text" value="${item.details||''}"
-                onchange="updateItemField('${serviceId}',${i},'details',this.value)"
-                oninput="updateItemField('${serviceId}',${i},'details',this.value)"
-                placeholder="Details (e.g., shoe brand, color, special instructions...)"
-                style="width:100%;border:1px solid rgba(0,0,0,0.1);border-radius:5px;padding:5px 8px;font-size:11px;color:var(--text2);font-style:italic;background:rgba(0,0,0,0.02);">
+            <td colspan="4" style="padding:5px 4px;">
+              <div style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;">
+                <div style="display:flex;flex-direction:column;gap:2px;">
+                  <span style="font-size:9px;color:#0277BD;font-weight:600;text-transform:uppercase;">Disc</span>
+                  <input type="number" min="0" step="1" value="${item.discount||0}"
+                    onchange="updateItemField('${serviceId}',${i},'discount',parseFloat(this.value)||0);updateDiscountPerUnitFromTotal('${serviceId}',${i});updateSubDisplay('${serviceId}',${i});updatePaymentSummary()"
+                    oninput="updateItemField('${serviceId}',${i},'discount',parseFloat(this.value)||0)"
+                    placeholder="0"
+                    style="width:55px;border:1px solid #29B6F6;border-radius:5px;padding:4px 6px;font-size:12px;text-align:center;color:#0277BD;">
+                </div>
+                <div style="flex:1;min-width:150px;display:flex;flex-direction:column;gap:2px;">
+                  <span style="font-size:9px;color:var(--text3);font-weight:600;text-transform:uppercase;">Details</span>
+                  <input type="text" value="${item.details||''}"
+                    onchange="updateItemField('${serviceId}',${i},'details',this.value)"
+                    oninput="updateItemField('${serviceId}',${i},'details',this.value)"
+                    placeholder="Color, brand, special instructions..."
+                    style="width:100%;border:1px solid rgba(0,0,0,0.1);border-radius:5px;padding:4px 8px;font-size:11px;color:var(--text2);font-style:italic;background:rgba(0,0,0,0.02);">
+                </div>
+                <button onclick="removeItemRow('${serviceId}',${i})" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:16px;padding:4px 6px;align-self:flex-end;">🗑</button>
+              </div>
             </td>
           </tr>
           `).join('')}
@@ -2146,8 +3376,78 @@ function autoFillPriceOnChange(serviceId, rowIndex, serviceName) {
   const match = svc.items.find(i => i.name.toLowerCase() === itemName.toLowerCase());
   if (match) {
     serviceItemsData[serviceId][rowIndex].price = match.price;
+    serviceItemsData[serviceId][rowIndex].discount = match.discount || 0; // Auto-fill discount too!
     reRenderService(serviceId, serviceName, svc.pricingType);
   }
+}
+
+function handleItemSelect(serviceId, rowIndex, value, serviceName) {
+  const services = DB.get('services') || [];
+  const svc = services.find(s => s.id === serviceId);
+  
+  if (value === '__custom__') {
+    // User wants to add new custom item
+    serviceItemsData[serviceId][rowIndex].isCustom = true;
+    serviceItemsData[serviceId][rowIndex].name = '';
+    serviceItemsData[serviceId][rowIndex].price = '';
+    serviceItemsData[serviceId][rowIndex].discountPerUnit = 0;
+    serviceItemsData[serviceId][rowIndex].discount = 0;
+    reRenderService(serviceId, serviceName, svc ? svc.pricingType : 'per_item');
+    return;
+  }
+  
+  if (!value) {
+    // Cleared selection
+    serviceItemsData[serviceId][rowIndex].isCustom = false;
+    serviceItemsData[serviceId][rowIndex].name = '';
+    serviceItemsData[serviceId][rowIndex].price = '';
+    serviceItemsData[serviceId][rowIndex].discountPerUnit = 0;
+    serviceItemsData[serviceId][rowIndex].discount = 0;
+    reRenderService(serviceId, serviceName, svc ? svc.pricingType : 'per_item');
+    return;
+  }
+  
+  // Selected an item from the list - auto-fill price and discount
+  serviceItemsData[serviceId][rowIndex].isCustom = false;
+  serviceItemsData[serviceId][rowIndex].name = value;
+  const match = svc && svc.items ? svc.items.find(i => i.name === value) : null;
+  if (match) {
+    serviceItemsData[serviceId][rowIndex].price = match.price;
+    serviceItemsData[serviceId][rowIndex].discountPerUnit = match.discount || 0;
+    // Calculate total discount = discountPerUnit * qty
+    const qty = parseFloat(serviceItemsData[serviceId][rowIndex].qty) || 1;
+    serviceItemsData[serviceId][rowIndex].discount = (match.discount || 0) * qty;
+  }
+  reRenderService(serviceId, serviceName, svc ? svc.pricingType : 'per_item');
+  updatePaymentSummary();
+}
+
+// Update discount when quantity changes (discount = discountPerUnit × qty)
+function updateDiscountFromQty(serviceId, rowIndex) {
+  const item = serviceItemsData[serviceId][rowIndex];
+  if (!item) return;
+  const discountPerUnit = parseFloat(item.discountPerUnit) || 0;
+  const qty = parseFloat(item.qty) || 1;
+  item.discount = discountPerUnit * qty;
+  // Update the discount display without full re-render
+  const tableId = 'svc_' + serviceId;
+  const svcEl = document.getElementById(tableId);
+  if (!svcEl) return;
+  const rows = svcEl.querySelectorAll('tbody tr');
+  const detailsRowIndex = (rowIndex * 2) + 1; // Second row for each item
+  if (rows[detailsRowIndex]) {
+    const discInput = rows[detailsRowIndex].querySelector('input[type="number"]');
+    if (discInput) discInput.value = item.discount.toFixed(0);
+  }
+}
+
+// Update discountPerUnit when user manually changes total discount
+function updateDiscountPerUnitFromTotal(serviceId, rowIndex) {
+  const item = serviceItemsData[serviceId][rowIndex];
+  if (!item) return;
+  const discount = parseFloat(item.discount) || 0;
+  const qty = parseFloat(item.qty) || 1;
+  item.discountPerUnit = qty > 0 ? discount / qty : 0;
 }
 
 function changeQty(serviceId, rowIndex, delta) {
@@ -2155,6 +3455,10 @@ function changeQty(serviceId, rowIndex, delta) {
   const current = parseFloat(serviceItemsData[serviceId][rowIndex].qty) || 1;
   const newQty = Math.max(1, Math.round(current + delta));
   serviceItemsData[serviceId][rowIndex].qty = newQty;
+  
+  // Update discount based on new quantity
+  updateDiscountFromQty(serviceId, rowIndex);
+  
   // Update qty input value directly without re-rendering
   const svcEl = document.getElementById('svc_' + serviceId);
   if (svcEl) {
@@ -2181,6 +3485,13 @@ function getDefaultPrice(serviceId) {
   return svc.items[0].price || '';
 }
 
+function getDefaultDiscount(serviceId) {
+  const services = DB.get('services') || [];
+  const svc = services.find(s => s.id === serviceId);
+  if (!svc || !svc.items || svc.items.length === 0) return 0;
+  return svc.items[0].discount || 0;
+}
+
 function getDefaultItemName(serviceId) {
   const services = DB.get('services') || [];
   const svc = services.find(s => s.id === serviceId);
@@ -2201,14 +3512,33 @@ function getAutoName(serviceId, pricingType) {
 function addItemRow(serviceId, serviceName, pricingType) {
   const autoName = getAutoName(serviceId, pricingType);
   const autoPrice = getDefaultPrice(serviceId);
-  serviceItemsData[serviceId].push({ name:autoName, qty:1, price:autoPrice, subtotal:0, discount:0, details:'' });
+  const discountPerUnit = getDefaultDiscount(serviceId);
+  serviceItemsData[serviceId].push({ 
+    name: autoName, 
+    qty: 1, 
+    price: autoPrice, 
+    discountPerUnit: discountPerUnit,
+    discount: discountPerUnit, // For qty=1, total equals per-unit
+    subtotal: 0, 
+    details: '',
+    isCustom: false
+  });
   renderServiceItems(serviceId, serviceName, pricingType, serviceItemsData[serviceId]);
   updatePaymentSummary();
 }
 
 function removeItemRow(serviceId, rowIndex) {
   serviceItemsData[serviceId].splice(rowIndex, 1);
-  if (serviceItemsData[serviceId].length === 0) serviceItemsData[serviceId].push({ name:'', qty:1, price:'', subtotal:0, discount:0, details:'' });
+  if (serviceItemsData[serviceId].length === 0) serviceItemsData[serviceId].push({ 
+    name: '', 
+    qty: 1, 
+    price: '', 
+    discountPerUnit: 0,
+    discount: 0, 
+    subtotal: 0, 
+    details: '',
+    isCustom: false
+  });
   const services = DB.get('services') || [];
   const svc = services.find(s => s.id === serviceId);
   renderServiceItems(serviceId, svc?svc.name:'', svc?svc.pricingType:'per_item', serviceItemsData[serviceId]);
@@ -2248,7 +3578,7 @@ function updateSubDisplay(serviceId, rowIndex) {
   const actualRowIndex = rowIndex * 2; // Each item takes 2 rows
   if (rows[actualRowIndex]) {
     const cells = rows[actualRowIndex].querySelectorAll('td');
-    if (cells[4]) cells[4].textContent = '₹' + sub.toFixed(0);
+    if (cells[3]) cells[3].textContent = '₹' + sub.toFixed(0); // SUB is now column 3 (ITEM, QTY, PRICE, SUB)
   }
 }
 
@@ -2394,7 +3724,9 @@ function saveOrder() {
         ...orders[idx],
         customerName: name, customerPhone: phone, customerPhone2: phone2, customerAddress: address,
         orderDate, dueDate, services: orderServices, subtotal, discount: totalDiscount, totalAmount, paidAmount, paymentMode, notes,
-        updatedAt: new Date().toISOString(), updatedBy: currentUser.name
+        updatedAt: new Date().toISOString(),
+        updatedBy: currentUser.id,
+        updatedByName: currentUser.name
       };
     }
     DB.set('orders', orders);
@@ -2414,7 +3746,9 @@ function saveOrder() {
       trackingCode: generateTrackingCode('ord_' + Date.now()),
       trackingExpiry: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(),
       statusHistory: [{ status:'received', changedAt: new Date().toISOString(), changedBy: currentUser.name }],
-      createdAt: new Date().toISOString(), createdBy: currentUser.name
+      createdAt: new Date().toISOString(),
+      createdBy: currentUser.id,
+      createdByName: currentUser.name
     };
     orders.unshift(newOrder);
     DB.set('orders', orders);
@@ -2433,26 +3767,39 @@ function saveOrder() {
   renderOrders();
   renderCustomers();
   refreshDashboard();
+  renderDueDatePage();
+  renderDueDateNew();
   serviceItemsData = {};
 }
 
 function saveOrUpdateCustomer(data) {
   const customers = DB.get('customers') || [];
   const existing = customers.find(c => c.phone === data.phone);
+  
   if (existing) {
+    // Update existing customer
     existing.name = data.name;
-    existing.phone2 = data.phone2 || existing.phone2;
-    existing.address = data.address || existing.address;
+    existing.phone2 = data.phone2 || existing.phone2 || '';
+    existing.address = data.address || existing.address || '';
+    existing.updatedAt = new Date().toISOString();
     existing.lastVisit = new Date().toISOString();
     existing.totalOrders = (existing.totalOrders || 0) + 1;
   } else {
+    // Add new customer
     customers.push({
-      id: 'cust_' + Date.now(), name: data.name, phone: data.phone,
-      phone2: data.phone2, address: data.address,
-      createdAt: new Date().toISOString(), lastVisit: new Date().toISOString(),
+      id: 'cust_' + Date.now(),
+      name: data.name,
+      phone: data.phone,
+      phone2: data.phone2 || '',
+      email: data.email || '',
+      address: data.address || '',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      lastVisit: new Date().toISOString(),
       totalOrders: 1
     });
   }
+  
   DB.set('customers', customers);
 }
 
@@ -2464,16 +3811,22 @@ function saveItemsToServices(serviceItemsData) {
     if (!svc.items) svc.items = [];
     items.forEach(item => {
       if (!item.name || !item.price) return;
+      
+      // Calculate discount per unit if not already set
+      const discountPerUnit = item.discountPerUnit !== undefined 
+        ? parseFloat(item.discountPerUnit) || 0
+        : (parseFloat(item.discount) || 0) / (parseFloat(item.qty) || 1);
+      
       const existing = svc.items.find(i => i.name.toLowerCase() === item.name.toLowerCase());
       if (existing) { 
         existing.price = item.price;
-        existing.discount = parseFloat(item.discount) || 0;
+        existing.discount = discountPerUnit; // Save per-unit discount in settings
       }
       else { 
         svc.items.push({ 
           name: item.name, 
           price: parseFloat(item.price),
-          discount: parseFloat(item.discount) || 0
+          discount: discountPerUnit // Save per-unit discount in settings
         }); 
       }
     });
@@ -2493,7 +3846,7 @@ function showOrderDetail(orderId) {
   const overdue = isOverdue(order);
 
   const statusOptions = ['received','inprogress','ready','paid_delivered','unpaid_delivered','cancelled'];
-  const isAdmin = currentUser.role === 'admin';
+  const isAdmin = currentUser.role === 'superadmin' || currentUser.role === 'admin';
   const isOperatorPlus = isAdmin || currentUser.role === 'operator';
 
   let servicesHtml = (order.services||[]).map(svc => `
@@ -2548,43 +3901,91 @@ function showOrderDetail(orderId) {
       </div>
     </div>
 
+    ${order.createdByName ? `<div style="background:rgba(255,107,0,0.05);border:1px dashed rgba(255,107,0,0.3);border-radius:10px;padding:10px 12px;margin-bottom:12px;">
+      <div style="display:flex;align-items:center;gap:8px;font-size:12px;">
+        <span style="opacity:0.7;">👤 Created by:</span>
+        <strong style="color:var(--orange);">${order.createdByName}</strong>
+        ${order.updatedByName && order.updatedByName !== order.createdByName ? `<span style="opacity:0.5;margin-left:auto;font-size:11px;">Last updated by: ${order.updatedByName}</span>` : ''}
+      </div>
+    </div>` : ''}
+
     <div style="margin-bottom:12px;">
       <div style="font-weight:700;margin-bottom:8px;color:var(--text2);font-size:12px;text-transform:uppercase;">Services & Items</div>
       ${servicesHtml}
     </div>
 
-    <div style="background:var(--dark);border-radius:12px;padding:14px;margin-bottom:12px;color:white;">
-      <div class="inv-total-row"><span>Total Amount</span><strong>₹${(order.totalAmount||0).toFixed(2)}</strong></div>
-      <div class="inv-total-row"><span>Advance Paid</span><strong>₹${(order.paidAmount||0).toFixed(2)}</strong></div>
-      <div class="inv-total-row" style="color:${balance>0?'#ff8a80':'#69f0ae'};font-weight:800;">
-        <span>${balance>0?'Balance Due':'Fully Paid'}</span>
-        <strong>₹${balance.toFixed(2)}</strong>
-      </div>
-      <div style="font-size:11px;opacity:0.6;margin-top:6px;">Mode: ${order.paymentMode==='upi'?'UPI (GPay/PhonePe)':'Cash'}</div>
-    </div>
-
-    ${balance > 0 && isOperatorPlus ? `<div style="margin-bottom:12px;">
-      <div style="font-weight:700;margin-bottom:8px;color:var(--text2);font-size:12px;text-transform:uppercase;">💰 Collect Payment</div>
-      <div style="display:flex;flex-direction:column;gap:8px;">
-        <div style="display:flex;gap:8px;align-items:center;">
-          <div style="flex:1;">
-            <label style="font-size:10px;color:var(--text3);font-weight:600;display:block;margin-bottom:3px;">AMOUNT (₹)</label>
-            <input type="number" id="collectAmount" value="${balance.toFixed(2)}" min="0" step="0.01"
-              style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:15px;font-weight:700;outline:none;">
-          </div>
-          <div>
-            <label style="font-size:10px;color:var(--text3);font-weight:600;display:block;margin-bottom:3px;">MODE</label>
-            <select id="collectMode" style="padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;outline:none;">
-              <option value="cash">💵 Cash</option>
-              <option value="upi">📱 UPI</option>
-            </select>
-          </div>
+    ${(() => {
+      const previousUnpaidOrders = getCustomerPreviousUnpaidOrders(order);
+      const previousBalance = getCustomerPreviousBalance(order);
+      const grandTotal = balance + previousBalance;
+      
+      return `<div style="background:var(--dark);border-radius:12px;padding:14px;margin-bottom:12px;color:white;">
+        <div class="inv-total-row"><span>Total Amount</span><strong>₹${(order.totalAmount||0).toFixed(2)}</strong></div>
+        <div class="inv-total-row"><span>Advance Paid</span><strong>₹${(order.paidAmount||0).toFixed(2)}</strong></div>
+        <div class="inv-total-row" style="color:${balance>0?'#ff8a80':'#69f0ae'};font-weight:800;">
+          <span>${balance>0?'Balance Due':'Fully Paid'}</span>
+          <strong>₹${balance.toFixed(2)}</strong>
         </div>
-        <button class="btn btn-success btn-full" onclick="collectPayment('${order.id}')">
-          💰 Collect Payment
-        </button>
-      </div>
-    </div>` : ''}
+        ${previousBalance > 0 ? `
+          <div style="border-top:1px dashed rgba(255,255,255,0.3);margin:10px 0;padding-top:10px;">
+            <div class="inv-total-row" style="color:#FFE082;">
+              <span>Previous Balance</span>
+              <strong>₹${previousBalance.toFixed(2)}</strong>
+            </div>
+            ${previousUnpaidOrders.length > 0 ? `
+              <div style="margin-top:8px;font-size:11px;opacity:0.9;">
+                <div style="margin-bottom:4px;font-weight:600;">Previous Unpaid Orders:</div>
+                ${previousUnpaidOrders.map(po => {
+                  const poBal = (po.totalAmount||0) - (po.paidAmount||0);
+                  return `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.1);">
+                    <span style="cursor:pointer;color:#81D4FA;text-decoration:underline;" onclick="closeModal('orderDetailModal');setTimeout(()=>showOrderDetail('${po.id}'),100);">
+                      ${po.orderNo} ›
+                    </span>
+                    <span>₹${poBal.toFixed(0)}</span>
+                  </div>`;
+                }).join('')}
+              </div>
+            ` : ''}
+            <div class="inv-total-row" style="color:#FF5252;font-weight:900;font-size:16px;margin-top:10px;padding-top:10px;border-top:2px solid rgba(255,255,255,0.3);">
+              <span>Grand Total Due</span>
+              <strong>₹${grandTotal.toFixed(2)}</strong>
+            </div>
+          </div>
+        ` : ''}
+        <div style="font-size:11px;opacity:0.6;margin-top:6px;">Mode: ${order.paymentMode==='upi'?'UPI (GPay/PhonePe)':'Cash'}</div>
+      </div>`;
+    })()}
+
+    ${(() => {
+      const previousBalance = getCustomerPreviousBalance(order);
+      const grandTotal = balance + previousBalance;
+      
+      return balance > 0 && isOperatorPlus ? `<div style="margin-bottom:12px;">
+        <div style="font-weight:700;margin-bottom:8px;color:var(--text2);font-size:12px;text-transform:uppercase;">💰 Collect Payment</div>
+        ${previousBalance > 0 ? `<div style="background:rgba(255,193,7,0.1);border:1px solid rgba(255,193,7,0.3);border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:12px;color:var(--text);">
+          💡 <strong>Note:</strong> This customer has ₹${previousBalance.toFixed(0)} previous balance. Grand total: ₹${grandTotal.toFixed(0)}
+        </div>` : ''}
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div style="display:flex;gap:8px;align-items:center;">
+            <div style="flex:1;">
+              <label style="font-size:10px;color:var(--text3);font-weight:600;display:block;margin-bottom:3px;">AMOUNT (₹)</label>
+              <input type="number" id="collectAmount" value="${balance.toFixed(2)}" min="0" step="0.01"
+                style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:15px;font-weight:700;outline:none;">
+            </div>
+            <div>
+              <label style="font-size:10px;color:var(--text3);font-weight:600;display:block;margin-bottom:3px;">MODE</label>
+              <select id="collectMode" style="padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;outline:none;">
+                <option value="cash">💵 Cash</option>
+                <option value="upi">📱 UPI</option>
+              </select>
+            </div>
+          </div>
+          <button class="btn btn-success btn-full" onclick="collectPayment('${order.id}')">
+            💰 Collect Payment
+          </button>
+        </div>
+      </div>` : '';
+    })()}
 
     ${isOperatorPlus ? `<div style="margin-bottom:12px;">
       <div style="font-weight:700;margin-bottom:8px;color:var(--text2);font-size:12px;text-transform:uppercase;">Update Status</div>
@@ -2646,10 +4047,59 @@ function showOrderDetail(orderId) {
   openModal('orderDetailModal');
 }
 
+// ============================================================
+// CUSTOMER PREVIOUS BALANCE HELPERS
+// ============================================================
+function getCustomerPreviousUnpaidOrders(currentOrder) {
+  const orders = DB.get('orders') || [];
+  const customerPhone = currentOrder.customerPhone;
+  
+  return orders.filter(o => {
+    // Same customer (by phone)
+    if (o.customerPhone !== customerPhone) return false;
+    
+    // Not the current order
+    if (o.id === currentOrder.id) return false;
+    
+    // Created before current order
+    if (new Date(o.createdAt) >= new Date(currentOrder.createdAt)) return false;
+    
+    // Has unpaid balance
+    const balance = (o.totalAmount || 0) - (o.paidAmount || 0);
+    if (balance <= 0) return false;
+    
+    // Not cancelled
+    if (o.status === 'cancelled') return false;
+    
+    return true;
+  }).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)); // Oldest first
+}
+
+function getCustomerPreviousBalance(currentOrder) {
+  const previousUnpaidOrders = getCustomerPreviousUnpaidOrders(currentOrder);
+  return previousUnpaidOrders.reduce((sum, o) => {
+    const balance = (o.totalAmount || 0) - (o.paidAmount || 0);
+    return sum + balance;
+  }, 0);
+}
+
+// ============================================================
+// ORDER STATUS
+// ============================================================
 function updateOrderStatus(orderId, newStatus) {
   const orders = DB.get('orders') || [];
   const order = orders.find(o => o.id === orderId);
   if (!order) return;
+
+  // VALIDATION: Check for unpaid previous orders before marking as paid_delivered
+  if (newStatus === 'paid_delivered') {
+    const previousUnpaidOrders = getCustomerPreviousUnpaidOrders(order);
+    if (previousUnpaidOrders.length > 0) {
+      const orderLinks = previousUnpaidOrders.map(o => o.orderNo).join(', ');
+      showToast(`⚠️ Cannot mark as Paid & Delivered! Customer has ${previousUnpaidOrders.length} unpaid previous order(s): ${orderLinks}. Please settle previous orders first.`, 'error');
+      return;
+    }
+  }
 
   order.status = newStatus;
   if (!order.statusHistory) order.statusHistory = [];
@@ -2668,6 +4118,7 @@ function updateOrderStatus(orderId, newStatus) {
   renderOrders();
   refreshDashboard();
   renderDueDatePage();
+  renderDueDateNew();
 
   // Auto WhatsApp for received status (with tracking link) - not for operators
   if (newStatus === 'received' && currentUser.role !== 'operator') {
@@ -2709,6 +4160,8 @@ function collectPayment(orderId) {
   closeModal('orderDetailModal');
   refreshDashboard();
   renderOrders();
+  renderDueDatePage();
+  renderDueDateNew();
 }
 
 function deleteOrder(orderId) {
@@ -2719,6 +4172,8 @@ function deleteOrder(orderId) {
     showToast('Order deleted', 'warning');
     renderOrders();
     refreshDashboard();
+    renderDueDatePage();
+    renderDueDateNew();
   });
 }
 
@@ -2738,6 +4193,7 @@ function quickShareWhatsAppText(orderId) {
   markWhatsAppSent(orderId);
   renderOrders();
   renderDueDatePage();
+  renderDueDateNew();
   refreshDashboard();
 }
 
@@ -2796,23 +4252,34 @@ function sendWhatsAppMessage(order, templateKey) {
   const shop = DB.get('shopSettings') || {};
   const balance = (order.totalAmount||0) - (order.paidAmount||0);
   const serviceNames = (order.services||[]).map(s=>s.serviceName).join(', ');
+  
+  // Calculate previous balance
+  const previousBalance = getCustomerPreviousBalance(order);
+  
+  // Build previous balance line (only if > 0)
+  let previousBalanceLine = '';
+  if (previousBalance > 0) {
+    previousBalanceLine = `Previous Balance: ₹${previousBalance.toFixed(2)}\n`;
+  }
 
   let msg = template
     .replace(/{customerName}/g, order.customerName)
     .replace(/{orderNo}/g, order.orderNo)
     .replace(/{services}/g, serviceNames)
+    .replace(/{previousBalance}/g, previousBalanceLine)
     .replace(/{totalAmount}/g, (order.totalAmount||0).toFixed(2))
     .replace(/{advancePaid}/g, (order.paidAmount||0).toFixed(2))
     .replace(/{balanceDue}/g, balance.toFixed(2))
     .replace(/{dueDate}/g, formatDate(order.dueDate))
     .replace(/{shopName}/g, shop.name||'TurboWash Laundry')
-    .replace(/{shopPhone}/g, shop.phone||'');
+    .replace(/{shopPhone}/g, shop.phone||'+91-9011637090')
+    .replace(/{shopHours}/g, shop.hours||'9AM - 9PM');
 
-  // Add tracking URL for received orders
-  if (templateKey === 'orderReceived' && order.trackingCode) {
-    const trackingUrl = window.location.origin + window.location.pathname + '?track=' + order.trackingCode;
-    msg += '\n\n📍 Track your order:\n' + trackingUrl + '\n\n(Link valid for 60 days)';
-  }
+  // Add tracking URL for received orders (DISABLED - not working correctly)
+  // if (templateKey === 'orderReceived' && order.trackingCode) {
+  //   const trackingUrl = window.location.origin + window.location.pathname + '?track=' + order.trackingCode;
+  //   msg += '\n\n📍 Track your order:\n' + trackingUrl + '\n\n(Link valid for 60 days)';
+  // }
 
   const phone = order.customerPhone.replace(/[^0-9]/g,'');
   const url = `https://wa.me/${phone.startsWith('91')?phone:'91'+phone}?text=${encodeURIComponent(msg)}`;
@@ -2829,6 +4296,41 @@ function sendWhatsAppFromDetail(orderId) {
   counts['wa_'+orderId] = (counts['wa_'+orderId] || 0) + 1;
   DB.set('shareCounts', counts);
   setTimeout(() => { renderOrders(); renderDueDatePage(); refreshDashboard(); }, 300);
+}
+
+function sendFeedbackRequest(orderId) {
+  const orders = DB.get('orders') || [];
+  const order = orders.find(o => o.id === orderId);
+  if (!order) return;
+  
+  // Get feedback template
+  const templates = DB.get('whatsappTemplates') || {};
+  let template = templates.feedbackRequest || '';
+  const shop = DB.get('shopSettings') || {};
+  
+  // Replace placeholders
+  let msg = template
+    .replace(/{customerName}/g, order.customerName)
+    .replace(/{shopName}/g, shop.name || 'TurboWash Laundry');
+  
+  // Send WhatsApp
+  const phone = order.customerPhone.replace(/[^0-9]/g, '');
+  const url = `https://wa.me/${phone.startsWith('91') ? phone : '91' + phone}?text=${encodeURIComponent(msg)}`;
+  window.open(url, '_blank');
+  
+  // Mark feedback as requested
+  order.feedbackRequested = true;
+  order.feedbackRequestedAt = new Date().toISOString();
+  DB.set('orders', orders);
+  
+  showToast('Feedback request sent! ⭐', 'success');
+  
+  // Refresh UI
+  setTimeout(() => {
+    renderOrders();
+    renderDueDatePage();
+    refreshDashboard();
+  }, 300);
 }
 
 // ============================================================
@@ -2879,6 +4381,9 @@ function showInvoice(orderId) {
     <div class="invoice-preview" id="invoiceContent" style="position:relative;overflow:hidden;">
       ${stampHtml}
       <div class="inv-header">
+        ${shop.logo && shop.logoOptions && shop.logoOptions.invoice ? `
+          <img src="${shop.logo}" style="max-height:80px;max-width:200px;object-fit:contain;margin-bottom:12px;">
+        ` : ''}
         <h2>${shop.name}</h2>
         <p>${shop.address}</p>
         <p>📞 ${shop.phone} | 🕐 ${shop.hours}</p>
@@ -2898,15 +4403,28 @@ function showInvoice(orderId) {
         </tr></thead>
         <tbody>${servicesHtml}</tbody>
       </table>
-      <div class="inv-total">
-        <div class="inv-total-row"><span>Subtotal</span><strong>₹${(order.subtotal||0).toFixed(2)}</strong></div>
-        <div class="inv-total-row" style="color:#0277BD;"><span>Total Discount</span><strong>-₹${(order.discount||0).toFixed(2)}</strong></div>
-        <hr style="margin:6px 0;border:none;border-top:1px solid var(--border);">
-        <div class="inv-total-row"><span>Total Amount</span><strong>₹${(order.totalAmount||0).toFixed(2)}</strong></div>
-        <div class="inv-total-row"><span>Advance Paid</span><strong>₹${(order.paidAmount||0).toFixed(2)}</strong></div>
-        <div class="inv-total-row main"><span>${balance>0?'Balance Due':'Amount Paid'}</span><strong>₹${balance>0?balance.toFixed(2):(order.totalAmount||0).toFixed(2)}</strong></div>
-        <div style="font-size:11px;opacity:0.6;margin-top:4px;">Payment Mode: ${order.paymentMode==='upi'?'UPI (GPay/PhonePe)':'Cash'}</div>
-      </div>
+      ${(() => {
+        const previousBalance = getCustomerPreviousBalance(order);
+        const grandTotal = balance + previousBalance;
+        
+        return `<div class="inv-total">
+          <div class="inv-total-row"><span>Subtotal</span><strong>₹${(order.subtotal||0).toFixed(2)}</strong></div>
+          <div class="inv-total-row" style="color:#0277BD;"><span>Total Discount</span><strong>-₹${(order.discount||0).toFixed(2)}</strong></div>
+          <hr style="margin:6px 0;border:none;border-top:1px solid var(--border);">
+          <div class="inv-total-row"><span>Total Amount</span><strong>₹${(order.totalAmount||0).toFixed(2)}</strong></div>
+          <div class="inv-total-row"><span>Advance Paid</span><strong>₹${(order.paidAmount||0).toFixed(2)}</strong></div>
+          <div class="inv-total-row" style="${balance>0?'color:#F44336;':'color:#4CAF50;'}"><span>${balance>0?'Balance Due':'Amount Paid'}</span><strong>₹${balance>0?balance.toFixed(2):(order.totalAmount||0).toFixed(2)}</strong></div>
+          ${previousBalance > 0 ? `
+            <hr style="margin:8px 0;border:none;border-top:1px dashed var(--border);">
+            <div class="inv-total-row" style="color:#FF9800;font-size:13px;"><span>Previous Balance</span><strong>₹${previousBalance.toFixed(2)}</strong></div>
+            <div class="inv-total-row main" style="background:rgba(255,82,82,0.1);padding:8px;border-radius:6px;margin-top:6px;">
+              <span style="font-size:15px;">Grand Total Due</span>
+              <strong style="font-size:17px;color:#F44336;">₹${grandTotal.toFixed(2)}</strong>
+            </div>
+          ` : ''}
+          <div style="font-size:11px;opacity:0.6;margin-top:4px;">Payment Mode: ${order.paymentMode==='upi'?'UPI (GPay/PhonePe)':'Cash'}</div>
+        </div>`;
+      })()}
       ${order.notes ? `<div style="margin-top:10px;padding:10px;background:rgba(255,107,0,0.08);border-radius:8px;font-size:12px;"><strong>Note:</strong> ${order.notes}</div>` : ''}
       <div class="inv-footer">
         <p>Thank you for choosing ${shop.name}! 🙏</p>
@@ -2954,22 +4472,38 @@ function downloadInvoicePDF() {
     const cw = pw - margin * 2;
 
     // ---- HEADER BACKGROUND ----
+    const hasLogo = shop.logo && shop.logoOptions && shop.logoOptions.pdf;
+    const headerHeight = hasLogo ? 50 : 38;
     doc.setFillColor(26, 26, 46);
-    doc.roundedRect(0, 0, pw, 38, 0, 0, 'F');
+    doc.roundedRect(0, 0, pw, headerHeight, 0, 0, 'F');
+
+    // ---- LOGO (if enabled) ----
+    if (hasLogo) {
+      try {
+        // Add logo at top center
+        doc.addImage(shop.logo, 'PNG', pw/2 - 15, 8, 30, 15, undefined, 'FAST');
+        y = 26;
+      } catch (e) {
+        console.log('Could not add logo to PDF:', e);
+        y = 10;
+      }
+    } else {
+      y = 10;
+    }
 
     // ---- SHOP NAME ----
     doc.setTextColor(255, 107, 0);
     doc.setFontSize(13);
     doc.setFont('helvetica', 'bold');
-    doc.text(shop.name || 'TurboWash Laundry', pw/2, 14, {align:'center'});
+    doc.text(shop.name || 'TurboWash Laundry', pw/2, y + 4, {align:'center'});
 
     doc.setTextColor(200, 200, 220);
     doc.setFontSize(7);
     doc.setFont('helvetica', 'normal');
-    doc.text(shop.address || '', pw/2, 19, {align:'center', maxWidth:cw});
-    doc.text((shop.phone||'') + '  |  ' + (shop.hours||''), pw/2, 24, {align:'center'});
+    doc.text(shop.address || '', pw/2, y + 9, {align:'center', maxWidth:cw});
+    doc.text((shop.phone||'') + '  |  ' + (shop.hours||''), pw/2, y + 14, {align:'center'});
 
-    y = 42;
+    y = headerHeight + 4;
 
     // ---- ORDER INFO ----
     doc.setFillColor(248, 249, 255);
@@ -3082,7 +4616,9 @@ function downloadInvoicePDF() {
     y += 6;
 
     // ---- TOTALS BOX ----
-    const totH = order.notes ? 34 : 28;
+    const previousBalance = getCustomerPreviousBalance(order);
+    const grandTotal = balance + previousBalance;
+    const totH = previousBalance > 0 ? (order.notes ? 46 : 40) : (order.notes ? 34 : 28);
     doc.setFillColor(26, 26, 46);
     doc.roundedRect(margin, y, cw, totH, 3, 3, 'F');
 
@@ -3099,18 +4635,45 @@ function downloadInvoicePDF() {
     doc.setDrawColor(80, 80, 100);
     doc.line(margin+3, y+16, pw-margin-3, y+16);
 
+    let yOffset = 16;
     const balLabel = balance > 0 ? 'Balance Due:' : 'Amount Paid:';
     const balVal = balance > 0 ? balance.toFixed(2) : (order.totalAmount||0).toFixed(2);
-    doc.setTextColor(255, 215, 0);
-    doc.setFontSize(10);
-    doc.text(balLabel, margin+4, y+23);
-    doc.text('Rs.'+balVal, pw-margin-4, y+23, {align:'right'});
+    doc.setTextColor(255, 138, 128);
+    doc.setFontSize(9);
+    doc.text(balLabel, margin+4, y+yOffset+7);
+    doc.text('Rs.'+balVal, pw-margin-4, y+yOffset+7, {align:'right'});
+    yOffset += 7;
+
+    if (previousBalance > 0) {
+      doc.setDrawColor(80, 80, 100);
+      doc.setLineDash([1, 1]);
+      doc.line(margin+3, y+yOffset+2, pw-margin-3, y+yOffset+2);
+      doc.setLineDash([]);
+      yOffset += 4;
+      
+      doc.setTextColor(255, 183, 77);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Previous Balance:', margin+4, y+yOffset+4);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Rs.'+previousBalance.toFixed(2), pw-margin-4, y+yOffset+4, {align:'right'});
+      yOffset += 6;
+      
+      doc.setTextColor(255, 82, 82);
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Grand Total Due:', margin+4, y+yOffset+4);
+      doc.text('Rs.'+grandTotal.toFixed(2), pw-margin-4, y+yOffset+4, {align:'right'});
+      yOffset += 6;
+    } else {
+      yOffset += 1;
+    }
 
     if (order.notes) {
       doc.setTextColor(200, 200, 200);
       doc.setFontSize(7);
       doc.setFont('helvetica', 'normal');
-      doc.text('Note: ' + order.notes, margin+4, y+29, {maxWidth: cw-8});
+      doc.text('Note: ' + order.notes, margin+4, y+yOffset+4, {maxWidth: cw-8});
     }
 
     y += totH + 4;
@@ -4055,6 +5618,10 @@ function showWhatsAppTemplates() {
       <div style="font-weight:700;font-size:13px;margin-bottom:6px;color:var(--success);">✅ Order Ready Template</div>
       <textarea id="tmpl_orderReady" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:'Poppins',sans-serif;min-height:120px;">${templates.orderReady||''}</textarea>
     </div>
+    <div style="margin-bottom:16px;">
+      <div style="font-weight:700;font-size:13px;margin-bottom:6px;color:#9C27B0;">⭐ Feedback Request Template</div>
+      <textarea id="tmpl_feedbackRequest" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:'Poppins',sans-serif;min-height:140px;">${templates.feedbackRequest||''}</textarea>
+    </div>
     <div style="background:rgba(255,107,0,0.08);border-radius:10px;padding:10px;font-size:11px;color:var(--text2);">
       <strong>Available variables:</strong><br>
       {customerName}, {orderNo}, {services}, {totalAmount}, {advancePaid}, {balanceDue}, {dueDate}, {shopName}, {shopPhone}
@@ -4069,7 +5636,8 @@ function showWhatsAppTemplates() {
 function saveWhatsAppTemplates() {
   const templates = {
     orderReceived: document.getElementById('tmpl_orderReceived').value,
-    orderReady: document.getElementById('tmpl_orderReady').value
+    orderReady: document.getElementById('tmpl_orderReady').value,
+    feedbackRequest: document.getElementById('tmpl_feedbackRequest').value
   };
   DB.set('whatsappTemplates', templates);
   showToast('Templates saved! ✅', 'success');
@@ -4081,31 +5649,156 @@ function saveWhatsAppTemplates() {
 // ============================================================
 function showShopSettings() {
   const shop = DB.get('shopSettings') || {};
+  const logoB64 = shop.logo || '';
+  const logoOptions = shop.logoOptions || { invoice: false, homescreen: false, pdf: false };
+  
   const html = `
     <div class="field"><label>Shop Name</label><input type="text" id="ss_name" value="${shop.name||''}"></div>
     <div class="field"><label>Address</label><textarea id="ss_address" style="min-height:70px;">${shop.address||''}</textarea></div>
     <div class="field"><label>Phone</label><input type="tel" id="ss_phone" value="${shop.phone||''}"></div>
     <div class="field"><label>Working Hours</label><input type="text" id="ss_hours" value="${shop.hours||''}"></div>
-    <div class="field"><label>Order Prefix (e.g. TWL)</label><input type="text" id="ss_prefix" value="${shop.orderPrefix||'TWL'}" maxlength="6" style="text-transform:uppercase;"></div>`;
+    <div class="field"><label>Order Prefix (e.g. TWL)</label><input type="text" id="ss_prefix" value="${shop.orderPrefix||'TWL'}" maxlength="6" style="text-transform:uppercase;"></div>
+    
+    <hr style="margin:20px 0;border:none;border-top:1px solid var(--border);">
+    
+    <div class="field">
+      <label>Shop Logo</label>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        ${logoB64 ? `
+          <div style="background:var(--card2);border-radius:8px;padding:12px;display:flex;align-items:center;gap:10px;">
+            <img src="${logoB64}" style="max-height:60px;max-width:100px;object-fit:contain;border-radius:4px;">
+            <div style="flex:1;">
+              <div style="font-size:11px;color:var(--text3);">Current logo</div>
+            </div>
+            <button class="btn btn-danger btn-sm" onclick="removeLogo()">Remove</button>
+          </div>
+        ` : ''}
+        <input type="file" id="ss_logo" accept="image/*" style="padding:8px;border:1px dashed var(--border);border-radius:8px;font-size:12px;" onchange="previewLogo(this)">
+        <div id="logoPreview" style="display:none;background:var(--card2);border-radius:8px;padding:12px;">
+          <img id="logoPreviewImg" style="max-height:80px;max-width:100%;object-fit:contain;">
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px;">
+          Recommended: PNG or JPG, max 500KB, transparent background works best
+        </div>
+      </div>
+    </div>
+    
+    <div class="field">
+      <label>Display Logo In:</label>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px;border-radius:6px;background:var(--card2);">
+          <input type="checkbox" id="logo_invoice" ${logoOptions.invoice?'checked':''} style="width:18px;height:18px;cursor:pointer;">
+          <div>
+            <div style="font-weight:600;font-size:13px;">📄 Invoice (Print & Screen)</div>
+            <div style="font-size:11px;color:var(--text3);">Show logo at top of invoice</div>
+          </div>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px;border-radius:6px;background:var(--card2);">
+          <input type="checkbox" id="logo_pdf" ${logoOptions.pdf?'checked':''} style="width:18px;height:18px;cursor:pointer;">
+          <div>
+            <div style="font-weight:600;font-size:13px;">📥 PDF Invoice</div>
+            <div style="font-size:11px;color:var(--text3);">Include logo in downloaded PDF</div>
+          </div>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px;border-radius:6px;background:var(--card2);">
+          <input type="checkbox" id="logo_homescreen" ${logoOptions.homescreen?'checked':''} style="width:18px;height:18px;cursor:pointer;">
+          <div>
+            <div style="font-weight:600;font-size:13px;">🏠 Home Screen</div>
+            <div style="font-size:11px;color:var(--text3);">Show logo in app header</div>
+          </div>
+        </label>
+      </div>
+    </div>
+  `;
 
   showPopup('🏪', 'Shop Settings', 'Update your shop information', html, [
     { label:'Save', cls:'btn-primary', action:'saveShopSettings()' },
     { label:'Cancel', cls:'btn-secondary', action:'closePopup()' }
-  ]);
+  ], 'popup-large');
+}
+
+function previewLogo(input) {
+  const file = input.files[0];
+  if (!file) return;
+  
+  // Check file size (max 500KB)
+  if (file.size > 500 * 1024) {
+    showToast('Logo file too large. Please use image under 500KB', 'error');
+    input.value = '';
+    return;
+  }
+  
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const preview = document.getElementById('logoPreview');
+    const img = document.getElementById('logoPreviewImg');
+    img.src = e.target.result;
+    preview.style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeLogo() {
+  const shop = DB.get('shopSettings') || {};
+  delete shop.logo;
+  delete shop.logoOptions;
+  DB.set('shopSettings', shop);
+  showToast('Logo removed! ✅', 'success');
+  updateHeaderLogo();
+  closePopup();
+  setTimeout(() => showShopSettings(), 100);
 }
 
 function saveShopSettings() {
+  const logoInput = document.getElementById('ss_logo');
+  const currentShop = DB.get('shopSettings') || {};
+  
   const shop = {
     name: document.getElementById('ss_name').value.trim(),
     address: document.getElementById('ss_address').value.trim(),
     phone: document.getElementById('ss_phone').value.trim(),
     hours: document.getElementById('ss_hours').value.trim(),
-    orderPrefix: document.getElementById('ss_prefix').value.trim().toUpperCase()
+    orderPrefix: document.getElementById('ss_prefix').value.trim().toUpperCase(),
+    logo: currentShop.logo || '', // Keep existing logo
+    logoOptions: {
+      invoice: document.getElementById('logo_invoice').checked,
+      pdf: document.getElementById('logo_pdf').checked,
+      homescreen: document.getElementById('logo_homescreen').checked
+    }
   };
-  DB.set('shopSettings', shop);
-  showToast('Shop settings saved! ✅', 'success');
-  closePopup();
-  refreshDashboard();
+  
+  // If new logo uploaded, save it
+  if (logoInput.files && logoInput.files[0]) {
+    const file = logoInput.files[0];
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      shop.logo = e.target.result;
+      DB.set('shopSettings', shop);
+      showToast('Shop settings saved! ✅', 'success');
+      updateHeaderLogo();
+      closePopup();
+      refreshDashboard();
+    };
+    reader.readAsDataURL(file);
+  } else {
+    DB.set('shopSettings', shop);
+    showToast('Shop settings saved! ✅', 'success');
+    updateHeaderLogo();
+    closePopup();
+    refreshDashboard();
+  }
+}
+
+function updateHeaderLogo() {
+  const shop = DB.get('shopSettings') || {};
+  const logoOptions = shop.logoOptions || {};
+  const logoContainer = document.getElementById('headerLogoContainer');
+  
+  if (logoContainer && shop.logo && logoOptions.homescreen) {
+    logoContainer.innerHTML = `<img src="${shop.logo}" style="height:36px;width:auto;max-width:120px;object-fit:contain;border-radius:6px;">`;
+  } else if (logoContainer) {
+    logoContainer.innerHTML = `<div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#FF6B00,#FFD700);display:flex;align-items:center;justify-content:center;font-family:'Nunito',sans-serif;font-weight:900;font-size:16px;color:white;flex-shrink:0;">TW</div>`;
+  }
 }
 
 // ============================================================
@@ -4113,7 +5806,7 @@ function saveShopSettings() {
 // ============================================================
 function showUserManager() {
   const users = DB.get('users') || [];
-  const roleLabels = { admin:'👑 Admin', operator:'⚙️ Operator', viewer:'👁️ Viewer' };
+  const roleLabels = { superadmin:'⭐ Super Admin', admin:'👑 Admin', operator:'⚙️ Operator', viewer:'👁️ Viewer' };
 
   const html = `
     <div style="margin-bottom:12px;">
@@ -4146,23 +5839,186 @@ function showUserManager() {
 
 function addNewUser() {
   closePopup();
-  const name = prompt('Full name:');
-  if (!name) return;
-  const username = prompt('Username (for login):');
-  if (!username) return;
-  const password = prompt('Password:');
-  if (!password) return;
-  const roleChoice = prompt('Role (1=admin, 2=operator, 3=viewer):');
-  const roles = {'1':'admin','2':'operator','3':'viewer'};
-  const role = roles[roleChoice] || 'operator';
+  
+  // Only superadmin can create superadmin users
+  const isSuperAdmin = currentUser.role === 'superadmin';
+  const roleOptions = isSuperAdmin 
+    ? '<option value="superadmin">⭐ Super Admin</option><option value="admin">👑 Admin</option><option value="operator">⚙️ Operator</option><option value="viewer">👁️ Viewer</option>'
+    : '<option value="admin">👑 Admin</option><option value="operator">⚙️ Operator</option><option value="viewer">👁️ Viewer</option>';
+  
+  const html = `
+    <div class="field">
+      <label>Full Name *</label>
+      <input type="text" id="newuser_name" placeholder="e.g., Avinash Kumar" style="width:100%;">
+    </div>
+    <div class="field">
+      <label>Mobile Number *</label>
+      <input type="tel" id="newuser_mobile" placeholder="10-digit mobile" maxlength="10" style="width:100%;">
+    </div>
+    <div class="field">
+      <label>Role *</label>
+      <select id="newuser_role" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:'Poppins',sans-serif;">
+        ${roleOptions}
+      </select>
+    </div>
+    <div style="background:rgba(255,107,0,0.1);border:1px dashed var(--orange);border-radius:8px;padding:12px;margin-top:12px;">
+      <div style="font-size:11px;font-weight:600;color:var(--orange);margin-bottom:4px;">📝 Auto-Generated Credentials</div>
+      <div style="font-size:11px;color:var(--text2);line-height:1.5;">Username and password will be auto-generated and shown after creation. Make sure to copy them!</div>
+    </div>
+  `;
+  
+  showPopup('👤', 'Add New User', 'Create a new user account', html, [
+    { label:'Create User', cls:'btn-primary', action:'saveNewUser()' },
+    { label:'Cancel', cls:'btn-secondary', action:'closePopup()' }
+  ]);
+  
+  setTimeout(() => document.getElementById('newuser_name')?.focus(), 100);
+}
 
+function saveNewUser() {
+  const name = document.getElementById('newuser_name').value.trim();
+  const mobile = document.getElementById('newuser_mobile').value.trim();
+  const role = document.getElementById('newuser_role').value;
+  
+  if (!name) {
+    showToast('Please enter full name', 'error');
+    return;
+  }
+  
+  if (!mobile || mobile.length !== 10 || !/^\d{10}$/.test(mobile)) {
+    showToast('Please enter valid 10-digit mobile number', 'error');
+    return;
+  }
+  
   const users = DB.get('users') || [];
-  if (users.find(u => u.username === username)) { showToast('Username already exists!', 'error'); return; }
-
-  users.push({ id:'u'+Date.now(), username, password, name, role, active:true, createdAt:new Date().toISOString() });
+  
+  // Check for duplicate mobile
+  if (users.find(u => u.mobile === mobile)) {
+    showToast('User with this mobile already exists!', 'error');
+    return;
+  }
+  
+  // Auto-generate username from name (lowercase, replace spaces with dots)
+  let username = name.toLowerCase()
+    .replace(/[^a-z0-9\s]/g, '') // Remove special characters
+    .replace(/\s+/g, '.') // Replace spaces with dots
+    .substring(0, 20); // Limit length
+  
+  // Make sure username is unique
+  let baseUsername = username;
+  let counter = 1;
+  while (users.find(u => u.username === username)) {
+    username = baseUsername + counter;
+    counter++;
+  }
+  
+  // Auto-generate random password (8 characters)
+  const password = generatePassword(8);
+  
+  // Create user
+  const newUser = {
+    id: 'u' + Date.now(),
+    username,
+    password,
+    name,
+    mobile,
+    role,
+    active: true,
+    createdAt: new Date().toISOString(),
+    createdBy: currentUser.id,
+    createdByName: currentUser.name
+  };
+  
+  users.push(newUser);
   DB.set('users', users);
-  showToast('User "' + name + '" added! ✅', 'success');
-  showUserManager();
+  
+  // Show credentials to copy
+  closePopup();
+  
+  const html = `
+    <div style="background:white;border:2px solid var(--orange);border-radius:12px;padding:16px;margin-bottom:16px;">
+      <div style="font-weight:700;color:var(--orange);margin-bottom:12px;font-size:15px;">✅ User Created Successfully!</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:16px;">Copy these credentials and share with the user securely:</div>
+      
+      <div style="background:rgba(0,0,0,0.03);border-radius:8px;padding:12px;margin-bottom:8px;">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">USERNAME</div>
+        <div style="font-family:monospace;font-size:15px;font-weight:700;color:var(--text);display:flex;align-items:center;justify-content:space-between;">
+          <span id="cred_username">${username}</span>
+          <button onclick="copyToClipboard('cred_username','Username copied!')" class="btn btn-sm" style="padding:4px 10px;font-size:11px;">📋 Copy</button>
+        </div>
+      </div>
+      
+      <div style="background:rgba(0,0,0,0.03);border-radius:8px;padding:12px;">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">PASSWORD</div>
+        <div style="font-family:monospace;font-size:15px;font-weight:700;color:var(--text);display:flex;align-items:center;justify-content:space-between;">
+          <span id="cred_password">${password}</span>
+          <button onclick="copyToClipboard('cred_password','Password copied!')" class="btn btn-sm" style="padding:4px 10px;font-size:11px;">📋 Copy</button>
+        </div>
+      </div>
+      
+      <div style="margin-top:12px;padding:10px;background:rgba(255,107,0,0.08);border-radius:6px;font-size:11px;color:var(--text2);line-height:1.5;">
+        ⚠️ <strong>Important:</strong> Save these credentials now. You won't be able to see the password again. User can change it after first login.
+      </div>
+    </div>
+    
+    <div style="padding:12px;background:rgba(0,0,0,0.03);border-radius:8px;">
+      <div style="font-size:12px;margin-bottom:8px;">
+        <strong>Name:</strong> ${name}
+      </div>
+      <div style="font-size:12px;margin-bottom:8px;">
+        <strong>Mobile:</strong> ${mobile}
+      </div>
+      <div style="font-size:12px;">
+        <strong>Role:</strong> ${role === 'superadmin' ? '⭐ Super Admin' : role === 'admin' ? '👑 Admin' : role === 'operator' ? '⚙️ Operator' : '👁️ Viewer'}
+      </div>
+    </div>
+  `;
+  
+  showPopup('🎉', 'User Created', '', html, [
+    { label:'Done', cls:'btn-primary btn-full', action:'closePopup();showUserManager()' }
+  ]);
+}
+
+function generatePassword(length) {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+  let password = '';
+  for (let i = 0; i < length; i++) {
+    password += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return password;
+}
+
+function copyToClipboard(elementId, successMsg) {
+  const element = document.getElementById(elementId);
+  const text = element.textContent;
+  
+  // Try modern clipboard API
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(() => {
+      showToast(successMsg || 'Copied!', 'success');
+    }).catch(() => {
+      // Fallback
+      fallbackCopy(text, successMsg);
+    });
+  } else {
+    fallbackCopy(text, successMsg);
+  }
+}
+
+function fallbackCopy(text, successMsg) {
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.style.position = 'fixed';
+  textarea.style.opacity = '0';
+  document.body.appendChild(textarea);
+  textarea.select();
+  try {
+    document.execCommand('copy');
+    showToast(successMsg || 'Copied!', 'success');
+  } catch (err) {
+    showToast('Could not copy', 'error');
+  }
+  document.body.removeChild(textarea);
 }
 
 function editUser(userId) {
@@ -4170,12 +6026,28 @@ function editUser(userId) {
   const users = DB.get('users') || [];
   const user = users.find(u => u.id === userId);
   if (!user) return;
+  
   const name = prompt('Full name:', user.name);
   if (!name) return;
-  const roleChoice = prompt('Role (1=admin, 2=operator, 3=viewer):', user.role==='admin'?'1':user.role==='operator'?'2':'3');
-  const roles = {'1':'admin','2':'operator','3':'viewer'};
+  
+  // Only superadmin can assign superadmin role
+  const isSuperAdmin = currentUser.role === 'superadmin';
+  const rolePrompt = isSuperAdmin 
+    ? 'Role (0=superadmin, 1=admin, 2=operator, 3=viewer):'
+    : 'Role (1=admin, 2=operator, 3=viewer):';
+  const currentRoleNum = user.role==='superadmin'?'0':user.role==='admin'?'1':user.role==='operator'?'2':'3';
+  
+  const roleChoice = prompt(rolePrompt, currentRoleNum);
+  const roles = isSuperAdmin 
+    ? {'0':'superadmin','1':'admin','2':'operator','3':'viewer'}
+    : {'1':'admin','2':'operator','3':'viewer'};
+  
   user.name = name;
   user.role = roles[roleChoice] || user.role;
+  user.updatedBy = currentUser.id;
+  user.updatedByName = currentUser.name;
+  user.updatedAt = new Date().toISOString();
+  
   DB.set('users', users);
   showToast('User updated! ✅', 'success');
   showUserManager();
@@ -4205,6 +6077,1378 @@ function toggleUserActive(userId, active) {
   const users = DB.get('users') || [];
   const user = users.find(u => u.id === userId);
   if (user) { user.active = active; DB.set('users', users); showToast('User ' + (active?'activated':'deactivated'), active?'success':'warning'); }
+}
+
+// ============================================================
+// CUSTOMER MANAGEMENT
+// ============================================================
+
+function showCustomerManager() {
+  openModal('customerModal');
+  renderCustomerList();
+}
+
+function renderCustomerList() {
+  const customers = DB.get('customers') || [];
+  const searchTerm = (document.getElementById('customerSearchInput')?.value || '').toLowerCase();
+  
+  let filtered = customers;
+  if (searchTerm) {
+    filtered = customers.filter(c => 
+      c.name.toLowerCase().includes(searchTerm) ||
+      c.phone.includes(searchTerm)
+    );
+  }
+  
+  // Sort by name
+  filtered.sort((a, b) => a.name.localeCompare(b.name));
+  
+  const container = document.getElementById('customerListContainer');
+  
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div style="text-align:center;padding:40px;color:var(--text3);">
+        <div style="font-size:48px;margin-bottom:12px;">👥</div>
+        <div style="font-weight:600;margin-bottom:4px;">No customers found</div>
+        <div style="font-size:12px;">${searchTerm ? 'Try different search terms' : 'Add your first customer'}</div>
+      </div>`;
+    return;
+  }
+  
+  container.innerHTML = `
+    <div style="font-size:12px;color:var(--text3);margin-bottom:12px;padding:0 4px;">
+      ${filtered.length} customer${filtered.length !== 1 ? 's' : ''}
+    </div>
+    ${filtered.map(c => `
+      <div style="background:white;border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px;transition:all 0.2s;" onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)'" onmouseout="this.style.boxShadow=''">
+        <div style="display:flex;align-items:flex-start;gap:12px;">
+          <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#FF6B00,#FFB300);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:18px;color:white;flex-shrink:0;">${c.name.charAt(0).toUpperCase()}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:700;font-size:14px;margin-bottom:4px;">${c.name}</div>
+            <div style="font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px;margin-bottom:2px;">
+              <span>📞</span> ${c.phone}
+            </div>
+            ${c.email ? `<div style="font-size:11px;color:var(--text3);display:flex;align-items:center;gap:6px;">
+              <span>📧</span> ${c.email}
+            </div>` : ''}
+            ${c.address ? `<div style="font-size:11px;color:var(--text3);margin-top:4px;line-height:1.4;">📍 ${c.address}</div>` : ''}
+            <div style="font-size:10px;color:var(--text3);margin-top:6px;">
+              Added: ${formatDate(c.createdAt)}
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+          <button class="btn btn-secondary btn-sm" onclick="editCustomer('${c.id}')" style="flex:1;">✏️ Edit</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteCustomer('${c.id}')">🗑️ Delete</button>
+        </div>
+      </div>
+    `).join('')}
+  `;
+}
+
+function filterCustomers() {
+  renderCustomerList();
+}
+
+function showAddCustomerForm() {
+  const html = `
+    <div class="field">
+      <label>Customer Name *</label>
+      <input type="text" id="cust_name" placeholder="Full name" style="width:100%;">
+    </div>
+    <div class="field">
+      <label>Phone Number *</label>
+      <input type="tel" id="cust_phone" placeholder="10-digit mobile number" maxlength="10" style="width:100%;">
+    </div>
+    <div class="field">
+      <label>Email (Optional)</label>
+      <input type="email" id="cust_email" placeholder="email@example.com" style="width:100%;">
+    </div>
+    <div class="field">
+      <label>Address (Optional)</label>
+      <textarea id="cust_address" placeholder="Full address" rows="2" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:10px;font-family:'Poppins',sans-serif;font-size:13px;resize:vertical;"></textarea>
+    </div>
+  `;
+  
+  showPopup('👤', 'Add Customer', 'Enter customer details', html, [
+    { label:'Save', cls:'btn-primary', action:'saveNewCustomer()' },
+    { label:'Cancel', cls:'btn-secondary', action:'closePopup();showCustomerManager()' }
+  ]);
+  
+  // Focus on name field
+  setTimeout(() => document.getElementById('cust_name')?.focus(), 100);
+}
+
+function saveNewCustomer() {
+  const name = document.getElementById('cust_name').value.trim();
+  const phone = document.getElementById('cust_phone').value.trim();
+  const email = document.getElementById('cust_email').value.trim();
+  const address = document.getElementById('cust_address').value.trim();
+  
+  if (!name) {
+    showToast('Please enter customer name', 'error');
+    return;
+  }
+  
+  if (!phone || phone.length !== 10 || !/^\d{10}$/.test(phone)) {
+    showToast('Please enter valid 10-digit phone number', 'error');
+    return;
+  }
+  
+  const customers = DB.get('customers') || [];
+  
+  // Check for duplicate phone
+  if (customers.find(c => c.phone === phone)) {
+    showToast('Customer with this phone already exists!', 'error');
+    return;
+  }
+  
+  const newCustomer = {
+    id: 'cust_' + Date.now(),
+    name,
+    phone,
+    email: email || '',
+    address: address || '',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+  
+  customers.push(newCustomer);
+  DB.set('customers', customers);
+  
+  showToast('Customer "' + name + '" added! ✅', 'success');
+  closePopup();
+  showCustomerManager();
+}
+
+function editCustomer(customerId) {
+  const customers = DB.get('customers') || [];
+  const customer = customers.find(c => c.id === customerId);
+  if (!customer) return;
+  
+  const html = `
+    <div class="field">
+      <label>Customer Name *</label>
+      <input type="text" id="cust_name" value="${customer.name}" placeholder="Full name" style="width:100%;">
+    </div>
+    <div class="field">
+      <label>Phone Number *</label>
+      <input type="tel" id="cust_phone" value="${customer.phone}" placeholder="10-digit mobile number" maxlength="10" style="width:100%;">
+    </div>
+    <div class="field">
+      <label>Email (Optional)</label>
+      <input type="email" id="cust_email" value="${customer.email || ''}" placeholder="email@example.com" style="width:100%;">
+    </div>
+    <div class="field">
+      <label>Address (Optional)</label>
+      <textarea id="cust_address" placeholder="Full address" rows="2" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:10px;font-family:'Poppins',sans-serif;font-size:13px;resize:vertical;">${customer.address || ''}</textarea>
+    </div>
+  `;
+  
+  showPopup('✏️', 'Edit Customer', 'Update customer details', html, [
+    { label:'Save', cls:'btn-primary', action:`updateCustomer('${customerId}')` },
+    { label:'Cancel', cls:'btn-secondary', action:'closePopup();showCustomerManager()' }
+  ]);
+}
+
+function updateCustomer(customerId) {
+  const name = document.getElementById('cust_name').value.trim();
+  const phone = document.getElementById('cust_phone').value.trim();
+  const email = document.getElementById('cust_email').value.trim();
+  const address = document.getElementById('cust_address').value.trim();
+  
+  if (!name) {
+    showToast('Please enter customer name', 'error');
+    return;
+  }
+  
+  if (!phone || phone.length !== 10 || !/^\d{10}$/.test(phone)) {
+    showToast('Please enter valid 10-digit phone number', 'error');
+    return;
+  }
+  
+  const customers = DB.get('customers') || [];
+  const customer = customers.find(c => c.id === customerId);
+  if (!customer) return;
+  
+  // Check for duplicate phone (excluding current customer)
+  if (customers.find(c => c.phone === phone && c.id !== customerId)) {
+    showToast('Another customer with this phone already exists!', 'error');
+    return;
+  }
+  
+  customer.name = name;
+  customer.phone = phone;
+  customer.email = email;
+  customer.address = address;
+  customer.updatedAt = new Date().toISOString();
+  
+  DB.set('customers', customers);
+  
+  showToast('Customer updated! ✅', 'success');
+  closePopup();
+  showCustomerManager();
+}
+
+function deleteCustomer(customerId) {
+  const customers = DB.get('customers') || [];
+  const customer = customers.find(c => c.id === customerId);
+  if (!customer) return;
+  
+  showConfirm('Delete Customer', `Delete "${customer.name}"? This cannot be undone.`, '🗑️', () => {
+    DB.set('customers', customers.filter(c => c.id !== customerId));
+    showToast('Customer deleted', 'warning');
+    closePopup();
+    showCustomerManager();
+  });
+}
+
+function downloadCustomersCSV() {
+  const customers = DB.get('customers') || [];
+  
+  if (customers.length === 0) {
+    showToast('No customers to export', 'warning');
+    return;
+  }
+  
+  // CSV Header
+  let csv = 'Name,Phone,Email,Address\n';
+  
+  // CSV Data
+  customers.forEach(c => {
+    const name = `"${(c.name || '').replace(/"/g, '""')}"`;
+    const phone = c.phone || '';
+    const email = `"${(c.email || '').replace(/"/g, '""')}"`;
+    const address = `"${(c.address || '').replace(/"/g, '""')}"`;
+    csv += `${name},${phone},${email},${address}\n`;
+  });
+  
+  // Download
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  link.setAttribute('href', url);
+  link.setAttribute('download', `TurboWash_Customers_${new Date().toISOString().split('T')[0]}.csv`);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  
+  showToast(`${customers.length} customers exported! 📥`, 'success');
+}
+
+function processCustomerCSV(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const text = e.target.result;
+      const lines = text.split('\n').map(line => line.trim()).filter(line => line);
+      
+      if (lines.length < 2) {
+        showToast('CSV file is empty or invalid', 'error');
+        return;
+      }
+      
+      // Parse CSV
+      const customers = DB.get('customers') || [];
+      let added = 0;
+      let skipped = 0;
+      
+      // Skip header row
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i];
+        
+        // Simple CSV parsing (handles quoted fields)
+        const fields = parseCSVLine(line);
+        
+        if (fields.length < 2) {
+          skipped++;
+          continue;
+        }
+        
+        const name = fields[0]?.trim() || '';
+        const phone = fields[1]?.trim() || '';
+        const email = fields[2]?.trim() || '';
+        const address = fields[3]?.trim() || '';
+        
+        // Validate
+        if (!name || !phone) {
+          skipped++;
+          continue;
+        }
+        
+        if (phone.length !== 10 || !/^\d{10}$/.test(phone)) {
+          skipped++;
+          continue;
+        }
+        
+        // Check duplicate
+        if (customers.find(c => c.phone === phone)) {
+          skipped++;
+          continue;
+        }
+        
+        // Add customer
+        customers.push({
+          id: 'cust_' + Date.now() + '_' + i,
+          name,
+          phone,
+          email,
+          address,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+        
+        added++;
+      }
+      
+      DB.set('customers', customers);
+      
+      showToast(`Imported: ${added} added, ${skipped} skipped`, 'success');
+      renderCustomerList();
+      
+    } catch (error) {
+      console.error('CSV parse error:', error);
+      showToast('Error parsing CSV file', 'error');
+    }
+  };
+  
+  reader.readAsText(file);
+  
+  // Reset file input
+  event.target.value = '';
+}
+
+function parseCSVLine(line) {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+  
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    
+    if (char === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === ',' && !inQuotes) {
+      result.push(current);
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  
+  result.push(current);
+  return result;
+}
+
+// Auto-save customer when creating order
+function autoSaveCustomerFromOrder(name, phone) {
+  if (!name || !phone) return;
+  
+  // Validate phone
+  if (phone.length !== 10 || !/^\d{10}$/.test(phone)) return;
+  
+  const customers = DB.get('customers') || [];
+  
+  // Check if customer already exists
+  if (customers.find(c => c.phone === phone)) return;
+  
+  // Add new customer
+  customers.push({
+    id: 'cust_' + Date.now(),
+    name: name.trim(),
+    phone: phone.trim(),
+    email: '',
+    address: '',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  });
+  
+  DB.set('customers', customers);
+}
+
+// ============================================================
+// AI ORDER ENTRY (OCR)
+// ============================================================
+let aiPhotoData = null;
+let aiExtractedEntries = [];
+
+function showAIOrderEntry() {
+  openModal('aiOrderModal');
+  // Reset to upload section
+  document.getElementById('aiUploadSection').style.display = 'block';
+  document.getElementById('aiProcessingSection').style.display = 'none';
+  document.getElementById('aiResultsSection').style.display = 'none';
+  document.getElementById('aiPhotoPreview').style.display = 'none';
+  document.getElementById('aiProcessBtn').disabled = true;
+  aiPhotoData = null;
+  aiExtractedEntries = [];
+}
+
+function handlePhotoUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  // Check file type
+  if (!file.type.startsWith('image/')) {
+    showToast('Please select an image file', 'error');
+    return;
+  }
+  
+  // Check file size (max 10MB)
+  if (file.size > 10 * 1024 * 1024) {
+    showToast('Image too large. Please use image under 10MB', 'error');
+    return;
+  }
+  
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    aiPhotoData = e.target.result;
+    const preview = document.getElementById('aiPhotoPreview');
+    const img = document.getElementById('aiPhotoPreviewImg');
+    img.src = aiPhotoData;
+    preview.style.display = 'block';
+    document.getElementById('aiProcessBtn').disabled = false;
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearAIPhoto() {
+  aiPhotoData = null;
+  document.getElementById('aiPhotoPreview').style.display = 'none';
+  document.getElementById('aiPhotoInput').value = '';
+  document.getElementById('aiProcessBtn').disabled = true;
+}
+
+function backToUpload() {
+  document.getElementById('aiUploadSection').style.display = 'block';
+  document.getElementById('aiResultsSection').style.display = 'none';
+}
+
+async function processNotebookOCR() {
+  if (!aiPhotoData) {
+    showToast('Please select a photo first', 'error');
+    return;
+  }
+  
+  // Show processing section
+  document.getElementById('aiUploadSection').style.display = 'none';
+  document.getElementById('aiProcessingSection').style.display = 'block';
+  document.getElementById('aiProcessStatus').textContent = 'Processing image...';
+  document.getElementById('aiProcessDetail').textContent = 'This may take 10-30 seconds';
+  
+  try {
+    // Run OCR using Tesseract.js
+    const result = await Tesseract.recognize(
+      aiPhotoData,
+      'eng',
+      {
+        logger: info => {
+          if (info.status === 'recognizing text') {
+            const progress = Math.round(info.progress * 100);
+            document.getElementById('aiProcessStatus').textContent = `Processing... ${progress}%`;
+            document.getElementById('aiProcessDetail').textContent = 'Reading handwriting from image';
+          }
+        }
+      }
+    );
+    
+    document.getElementById('aiProcessStatus').textContent = 'Extracting entries...';
+    document.getElementById('aiProcessDetail').textContent = 'Parsing text and matching patterns';
+    
+    // Extract text
+    const text = result.data.text;
+    console.log('OCR Text:', text);
+    
+    // Parse entries from text
+    const entries = parseNotebookEntries(text);
+    
+    if (entries.length === 0) {
+      showToast('No entries found. Please check the photo and try again.', 'warning');
+      document.getElementById('aiUploadSection').style.display = 'block';
+      document.getElementById('aiProcessingSection').style.display = 'none';
+      return;
+    }
+    
+    // Store extracted entries
+    aiExtractedEntries = entries;
+    
+    // Show results
+    showAIResults();
+    
+  } catch (error) {
+    console.error('OCR Error:', error);
+    showToast('Failed to process image. Please try again.', 'error');
+    document.getElementById('aiUploadSection').style.display = 'block';
+    document.getElementById('aiProcessingSection').style.display = 'none';
+  }
+}
+
+function parseNotebookEntries(text) {
+  const entries = [];
+  const lines = text.split('\n').filter(line => line.trim().length > 5);
+  
+  // Get the last order number to generate sequential IDs
+  const orders = DB.get('orders') || [];
+  let lastOrderNum = 0;
+  if (orders.length > 0) {
+    const lastOrder = orders[orders.length - 1];
+    const match = lastOrder.orderNo.match(/(\d+)$/);
+    if (match) lastOrderNum = parseInt(match[1]);
+  }
+  
+  let entryCounter = 0;
+  
+  for (let line of lines) {
+    // Clean the line
+    line = line.trim().replace(/\s+/g, ' ');
+    
+    // Skip very short lines
+    if (line.length < 8) continue;
+    
+    // Try to extract: ID (optional) | Name | Phone | Service
+    // Patterns to match:
+    // "ID-001 Raj Kumar 9876543210 2 Shirt DC"
+    // "Raj Kumar 9876543210 2 Shirt DC"
+    // "001 Raj 9876543210 2 Shirt DC"
+    
+    // Extract phone number first (10 digits)
+    const phoneMatch = line.match(/\b(\d{10})\b/);
+    if (!phoneMatch) continue; // Skip if no phone number
+    
+    const phone = phoneMatch[1];
+    const phoneIndex = line.indexOf(phone);
+    
+    // Text before phone is likely ID + Name
+    const beforePhone = line.substring(0, phoneIndex).trim();
+    // Text after phone is likely Service
+    const afterPhone = line.substring(phoneIndex + 10).trim();
+    
+    // Skip ID pattern if present and extract name
+    let name = beforePhone;
+    name = name.replace(/^(ID[-\s]*)?\d+\s*/i, ''); // Remove ID-001 or 001 or ID 001
+    name = name.trim();
+    
+    if (!name || name.length < 2) continue; // Need a name
+    if (!afterPhone || afterPhone.length < 3) continue; // Need a service
+    
+    // Generate sequential order number
+    entryCounter++;
+    const orderNum = lastOrderNum + entryCounter;
+    const shop = DB.get('shopSettings') || {};
+    const prefix = shop.orderPrefix || 'TWL';
+    const orderNo = `${prefix}-${String(orderNum).padStart(3, '0')}`;
+    
+    // Try to match customer by phone
+    const customers = DB.get('customers') || [];
+    const matchedCustomer = customers.find(c => c.phone === phone);
+    
+    // Parse service description
+    const serviceParsed = parseServiceDescription(afterPhone);
+    
+    const entry = {
+      tempId: 'ai_' + Date.now() + '_' + entryCounter,
+      orderNo: orderNo,
+      name: capitalizeWords(name),
+      phone: phone,
+      customerMatched: !!matchedCustomer,
+      matchedCustomer: matchedCustomer,
+      serviceText: afterPhone,
+      serviceParsed: serviceParsed,
+      rawLine: line,
+      confidence: calculateConfidence(name, phone, afterPhone)
+    };
+    
+    entries.push(entry);
+  }
+  
+  return entries;
+}
+
+function parseServiceDescription(text) {
+  // Parse service descriptions like:
+  // "2 Shirt DC" → 2 Shirt Dry Cleaning
+  // "1 Pant + 2 Shirt Iron" → 1 Pant Iron, 2 Shirt Iron
+  // "3 Kurta WW" → 3 Kurta Wash & Iron
+  
+  const services = [];
+  const parts = text.split('+').map(p => p.trim());
+  
+  for (let part of parts) {
+    // Match: "2 Shirt DC" or "1 Pant Iron"
+    const match = part.match(/(\d+)\s+([A-Za-z]+)\s*([A-Za-z]+)?/i);
+    if (match) {
+      const qty = parseInt(match[1]);
+      const item = capitalizeWords(match[2]);
+      const serviceType = match[3] ? match[3].toUpperCase() : 'WI';
+      
+      // Map service codes
+      let serviceName = 'Wash & Iron';
+      if (serviceType === 'DC' || serviceType.includes('DRY')) serviceName = 'Dry Cleaning';
+      else if (serviceType.includes('IRON') || serviceType === 'I') serviceName = 'Iron';
+      else if (serviceType === 'WW' || serviceType.includes('WASH')) serviceName = 'Wash & Iron';
+      
+      services.push({
+        qty: qty,
+        item: item,
+        service: serviceName
+      });
+    }
+  }
+  
+  return services;
+}
+
+function capitalizeWords(str) {
+  return str.toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+}
+
+function calculateConfidence(name, phone, service) {
+  let score = 0;
+  
+  // Phone number is 10 digits = high confidence
+  if (phone && phone.length === 10) score += 40;
+  
+  // Name has reasonable length
+  if (name && name.length >= 3 && name.length <= 30) score += 30;
+  
+  // Service has numbers and text
+  if (service && /\d/.test(service) && /[a-zA-Z]/.test(service)) score += 30;
+  
+  return Math.min(100, score);
+}
+
+function showAIResults() {
+  document.getElementById('aiProcessingSection').style.display = 'none';
+  document.getElementById('aiResultsSection').style.display = 'block';
+  
+  const count = aiExtractedEntries.length;
+  document.getElementById('aiEntryCount').textContent = `${count} ${count === 1 ? 'entry' : 'entries'} found`;
+  
+  renderAIEntries();
+}
+
+function renderAIEntries() {
+  const container = document.getElementById('aiEntriesList');
+  
+  if (aiExtractedEntries.length === 0) {
+    container.innerHTML = `
+      <div style="text-align:center;padding:40px;color:var(--text3);">
+        <div style="font-size:48px;margin-bottom:12px;">📋</div>
+        <div>No entries extracted</div>
+      </div>`;
+    return;
+  }
+  
+  container.innerHTML = aiExtractedEntries.map((entry, index) => {
+    const confidenceColor = entry.confidence >= 80 ? '#4CAF50' : entry.confidence >= 60 ? '#FF9800' : '#F44336';
+    const confidenceIcon = entry.confidence >= 80 ? '✅' : entry.confidence >= 60 ? '⚠️' : '❌';
+    
+    return `
+      <div style="background:white;border:2px solid ${entry.customerMatched ? '#4CAF50' : 'var(--border)'};border-radius:12px;padding:14px;margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+          <div style="flex:1;">
+            <div style="font-weight:800;font-size:15px;color:var(--orange);font-family:'Nunito',sans-serif;">${entry.orderNo}</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:2px;">
+              ${confidenceIcon} Confidence: ${entry.confidence}%
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-secondary btn-sm" onclick="editAIEntry(${index})">✏️</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteAIEntry(${index})">🗑️</button>
+          </div>
+        </div>
+        
+        <div style="background:var(--card2);border-radius:8px;padding:10px;margin-bottom:10px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+            <span style="font-weight:700;font-size:13px;">👤 ${entry.name}</span>
+            ${entry.customerMatched ? '<span style="background:#4CAF50;color:white;font-size:10px;padding:2px 6px;border-radius:4px;font-weight:700;">✓ MATCHED</span>' : '<span style="background:#FF9800;color:white;font-size:10px;padding:2px 6px;border-radius:4px;font-weight:700;">NEW</span>'}
+          </div>
+          <div style="font-size:12px;color:var(--text2);">📞 ${entry.phone}</div>
+          ${entry.matchedCustomer ? `<div style="font-size:11px;color:var(--text3);margin-top:4px;">Known customer: ${entry.matchedCustomer.name}</div>` : ''}
+        </div>
+        
+        <div style="background:rgba(255,107,0,0.05);border-radius:8px;padding:10px;">
+          <div style="font-weight:700;font-size:11px;color:var(--text2);margin-bottom:6px;">SERVICE:</div>
+          ${entry.serviceParsed.length > 0 ? entry.serviceParsed.map(s => 
+            `<div style="font-size:12px;margin-bottom:4px;">• ${s.qty}× ${s.item} - ${s.service}</div>`
+          ).join('') : `<div style="font-size:12px;color:var(--text3);">${entry.serviceText}</div>`}
+        </div>
+        
+        <div style="display:flex;gap:6px;margin-top:10px;">
+          <button class="btn btn-success btn-sm" onclick="saveAIEntry(${index}, false)" style="flex:1;">
+            💾 Save
+          </button>
+          <button class="btn btn-success btn-sm" onclick="saveAIEntry(${index}, true)" style="flex:1;">
+            💾📱 Save & WhatsApp
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function editAIEntry(index) {
+  const entry = aiExtractedEntries[index];
+  
+  const html = `
+    <div class="field">
+      <label>Order Number</label>
+      <input type="text" id="edit_orderNo" value="${entry.orderNo}" readonly style="background:var(--card2);">
+    </div>
+    <div class="field">
+      <label>Customer Name</label>
+      <input type="text" id="edit_name" value="${entry.name}">
+    </div>
+    <div class="field">
+      <label>Phone Number</label>
+      <input type="tel" id="edit_phone" value="${entry.phone}">
+    </div>
+    <div class="field">
+      <label>Service Description</label>
+      <textarea id="edit_service" style="min-height:70px;">${entry.serviceText}</textarea>
+    </div>
+  `;
+  
+  showPopup('✏️', 'Edit Entry', 'Correct any mistakes', html, [
+    { label:'Save Changes', cls:'btn-primary', action:`updateAIEntry(${index})` },
+    { label:'Cancel', cls:'btn-secondary', action:'closePopup()' }
+  ]);
+}
+
+function updateAIEntry(index) {
+  const name = document.getElementById('edit_name').value.trim();
+  const phone = document.getElementById('edit_phone').value.trim();
+  const service = document.getElementById('edit_service').value.trim();
+  
+  if (!name || !phone || !service) {
+    showToast('All fields are required', 'error');
+    return;
+  }
+  
+  if (phone.length !== 10 || !/^\d+$/.test(phone)) {
+    showToast('Phone must be 10 digits', 'error');
+    return;
+  }
+  
+  aiExtractedEntries[index].name = name;
+  aiExtractedEntries[index].phone = phone;
+  aiExtractedEntries[index].serviceText = service;
+  aiExtractedEntries[index].serviceParsed = parseServiceDescription(service);
+  
+  // Re-match customer
+  const customers = DB.get('customers') || [];
+  const matchedCustomer = customers.find(c => c.phone === phone);
+  aiExtractedEntries[index].customerMatched = !!matchedCustomer;
+  aiExtractedEntries[index].matchedCustomer = matchedCustomer;
+  
+  renderAIEntries();
+  closePopup();
+  showToast('Entry updated! ✅', 'success');
+}
+
+function deleteAIEntry(index) {
+  if (confirm('Delete this entry?')) {
+    aiExtractedEntries.splice(index, 1);
+    renderAIEntries();
+    const count = aiExtractedEntries.length;
+    document.getElementById('aiEntryCount').textContent = `${count} ${count === 1 ? 'entry' : 'entries'} found`;
+    showToast('Entry deleted', 'success');
+  }
+}
+
+async function saveAIEntry(index, sendWhatsApp) {
+  const entry = aiExtractedEntries[index];
+  
+  // Create order from entry
+  const success = await createOrderFromAIEntry(entry, sendWhatsApp);
+  
+  if (success) {
+    // Remove from list
+    aiExtractedEntries.splice(index, 1);
+    renderAIEntries();
+    
+    const count = aiExtractedEntries.length;
+    document.getElementById('aiEntryCount').textContent = `${count} ${count === 1 ? 'entry' : 'entries'} found`;
+    
+    if (aiExtractedEntries.length === 0) {
+      showToast('All entries saved! ✅', 'success');
+      setTimeout(() => {
+        closeModal('aiOrderModal');
+        renderOrders();
+        refreshDashboard();
+      }, 1000);
+    }
+  }
+}
+
+async function saveAllAIEntries(sendWhatsApp) {
+  if (aiExtractedEntries.length === 0) {
+    showToast('No entries to save', 'warning');
+    return;
+  }
+  
+  const total = aiExtractedEntries.length;
+  let saved = 0;
+  
+  showToast(`Saving ${total} entries...`, '');
+  
+  for (let i = aiExtractedEntries.length - 1; i >= 0; i--) {
+    const entry = aiExtractedEntries[i];
+    const success = await createOrderFromAIEntry(entry, sendWhatsApp);
+    if (success) {
+      saved++;
+      aiExtractedEntries.splice(i, 1);
+    }
+    // Small delay between orders
+    await new Promise(resolve => setTimeout(resolve, sendWhatsApp ? 1000 : 100));
+  }
+  
+  if (saved === total) {
+    showToast(`All ${total} entries saved! ✅`, 'success');
+    setTimeout(() => {
+      closeModal('aiOrderModal');
+      renderOrders();
+      refreshDashboard();
+    }, 1000);
+  } else {
+    showToast(`Saved ${saved} of ${total} entries`, 'warning');
+    renderAIEntries();
+  }
+}
+
+async function createOrderFromAIEntry(entry, sendWhatsApp) {
+  try {
+    // Check if customer exists, if not create one
+    let customers = DB.get('customers') || [];
+    let customer = customers.find(c => c.phone === entry.phone);
+    
+    if (!customer) {
+      customer = {
+        id: 'cust_' + Date.now(),
+        name: entry.name,
+        phone: entry.phone,
+        email: '',
+        address: '',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      customers.push(customer);
+      DB.set('customers', customers);
+    }
+    
+    // Build services array
+    const services = [];
+    if (entry.serviceParsed.length > 0) {
+      // Group by service type
+      const serviceGroups = {};
+      entry.serviceParsed.forEach(s => {
+        if (!serviceGroups[s.service]) {
+          serviceGroups[s.service] = [];
+        }
+        serviceGroups[s.service].push({
+          name: s.item,
+          qty: s.qty,
+          price: 0, // Will be filled from service manager
+          discount: 0
+        });
+      });
+      
+      // Get service prices from service manager
+      const allServices = DB.get('services') || [];
+      
+      for (let serviceName in serviceGroups) {
+        const serviceData = allServices.find(s => s.name === serviceName);
+        const items = serviceGroups[serviceName];
+        
+        // Try to match items and get prices
+        if (serviceData && serviceData.items) {
+          items.forEach(item => {
+            const itemData = serviceData.items.find(i => i.name.toLowerCase() === item.name.toLowerCase());
+            if (itemData) {
+              item.price = itemData.price || 0;
+            }
+          });
+        }
+        
+        // Calculate service total
+        const serviceTotal = items.reduce((sum, item) => sum + (item.qty * item.price - item.discount), 0);
+        
+        services.push({
+          serviceName: serviceName,
+          items: items,
+          serviceTotal: serviceTotal
+        });
+      }
+    }
+    
+    // Calculate totals
+    const subtotal = services.reduce((sum, svc) => sum + (svc.serviceTotal || 0), 0);
+    const discount = services.reduce((sum, svc) => 
+      sum + (svc.items || []).reduce((s, i) => s + (parseFloat(i.discount) || 0), 0), 0);
+    const totalAmount = subtotal - discount;
+    
+    // Create order
+    const order = {
+      id: 'order_' + Date.now(),
+      orderNo: entry.orderNo,
+      customerName: entry.name,
+      customerPhone: entry.phone,
+      customerPhone2: '',
+      customerAddress: customer.address || '',
+      orderDate: new Date().toISOString(),
+      dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days from now
+      services: services,
+      subtotal: subtotal,
+      discount: discount,
+      totalAmount: totalAmount,
+      paidAmount: 0,
+      paymentMode: 'cash',
+      status: 'received',
+      notes: `Created from AI scan`,
+      createdAt: new Date().toISOString(),
+      createdBy: currentUser.id,
+      createdByName: currentUser.name,
+      statusHistory: [{
+        status: 'received',
+        changedAt: new Date().toISOString(),
+        changedBy: currentUser.name
+      }]
+    };
+    
+    // Generate tracking code
+    order.trackingCode = generateTrackingCode(order.id);
+    order.trackingExpiry = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
+    
+    // Save order
+    const orders = DB.get('orders') || [];
+    orders.push(order);
+    DB.set('orders', orders);
+    
+    // Send WhatsApp if requested
+    if (sendWhatsApp) {
+      sendWhatsAppMessage(order, 'orderReceived');
+    }
+    
+    showToast(`Order ${entry.orderNo} created! ✅`, 'success');
+    return true;
+    
+  } catch (error) {
+    console.error('Error creating order:', error);
+    showToast(`Failed to create order ${entry.orderNo}`, 'error');
+    return false;
+  }
+}
+
+// ============================================================
+// EXPENSE MANAGER
+// ============================================================
+function showExpenseManager() {
+  const expenses = DB.get('expenses') || [];
+  const sorted = expenses.sort((a, b) => new Date(b.date) - new Date(a.date));
+  
+  const expenseRows = sorted.map(exp => {
+    const categoryIcons = {
+      salary: '💼', electricity: '⚡', rent: '🏠', stationery: '📝',
+      maintenance: '🔧', transport: '🚗', other: '📦'
+    };
+    const icon = categoryIcons[exp.category] || '💰';
+    
+    return `
+      <div style="background:white;border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:8px;">
+        <div style="display:flex;align-items:start;gap:10px;">
+          <div style="font-size:24px;flex-shrink:0;">${icon}</div>
+          <div style="flex:1;">
+            <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:4px;">
+              <div>
+                <div style="font-weight:700;font-size:14px;text-transform:capitalize;">${exp.category}</div>
+                <div style="font-size:12px;color:var(--text2);">${exp.description || '-'}</div>
+              </div>
+              <div style="text-align:right;">
+                <div style="font-weight:800;font-size:16px;color:var(--danger);">₹${parseFloat(exp.amount || 0).toFixed(0)}</div>
+                <div style="font-size:11px;color:var(--text3);">${formatDate(exp.date)}</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:6px;margin-top:8px;">
+              <button onclick="event.stopPropagation();editExpense('${exp.id}')" style="flex:1;padding:6px;border-radius:6px;border:1px solid var(--border);background:white;color:var(--text);font-size:11px;font-weight:600;cursor:pointer;">✏️ Edit</button>
+              <button onclick="event.stopPropagation();deleteExpense('${exp.id}')" style="flex:1;padding:6px;border-radius:6px;border:1px solid var(--danger);background:rgba(244,67,54,0.1);color:var(--danger);font-size:11px;font-weight:600;cursor:pointer;">🗑 Delete</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+  
+  const totalExpenses = expenses.reduce((sum, exp) => sum + parseFloat(exp.amount || 0), 0);
+  
+  const html = `
+    <div style="background:linear-gradient(135deg,#F44336,#D32F2F);border-radius:12px;padding:16px;margin-bottom:12px;color:white;">
+      <div style="font-size:12px;opacity:0.9;margin-bottom:4px;">Total Expenses</div>
+      <div style="font-size:28px;font-weight:900;font-family:'Nunito',sans-serif;">₹${totalExpenses.toFixed(0)}</div>
+      <div style="font-size:11px;opacity:0.8;margin-top:4px;">${expenses.length} expense${expenses.length !== 1 ? 's' : ''} recorded</div>
+    </div>
+    
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <button class="btn btn-primary btn-full" onclick="closePopup();showAddExpenseForm()">+ Add Expense</button>
+      <button class="btn btn-secondary" onclick="downloadExpensesCSV()" style="padding:0 16px;">📥 CSV</button>
+    </div>
+    
+    <div style="max-height:400px;overflow-y:auto;">
+      ${expenseRows.length > 0 ? expenseRows : '<div style="text-align:center;padding:40px 20px;color:var(--text3);"><div style="font-size:48px;margin-bottom:12px;">💰</div><div>No expenses recorded yet</div><div style="font-size:12px;margin-top:4px;">Add your first expense to start tracking</div></div>'}
+    </div>
+  `;
+  
+  showPopup('💰', 'Expense Manager', 'Track business expenses', html, [
+    { label:'Close', cls:'btn-secondary', action:'closePopup()' }
+  ]);
+}
+
+function showAddExpenseForm() {
+  const today = new Date().toISOString().split('T')[0];
+  
+  const html = `
+    <div class="field">
+      <label>Date *</label>
+      <input type="date" id="exp_date" value="${today}" style="width:100%;">
+    </div>
+    <div class="field">
+      <label>Category *</label>
+      <select id="exp_category" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:'Poppins',sans-serif;">
+        <option value="salary">💼 Salary</option>
+        <option value="electricity">⚡ Electricity Bill</option>
+        <option value="rent">🏠 Rent</option>
+        <option value="stationery">📝 Stationery</option>
+        <option value="maintenance">🔧 Maintenance</option>
+        <option value="transport">🚗 Transport</option>
+        <option value="other">📦 Other</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Description</label>
+      <input type="text" id="exp_description" placeholder="e.g., Staff salary for March" style="width:100%;">
+    </div>
+    <div class="field">
+      <label>Amount *</label>
+      <input type="number" id="exp_amount" placeholder="0.00" step="0.01" style="width:100%;">
+    </div>
+  `;
+  
+  showPopup('💰', 'Add Expense', 'Record a business expense', html, [
+    { label:'Save Expense', cls:'btn-primary', action:'saveExpense()' },
+    { label:'Cancel', cls:'btn-secondary', action:'closePopup();showExpenseManager()' }
+  ]);
+  
+  setTimeout(() => document.getElementById('exp_date')?.focus(), 100);
+}
+
+function saveExpense(editId) {
+  const date = document.getElementById('exp_date').value;
+  const category = document.getElementById('exp_category').value;
+  const description = document.getElementById('exp_description').value.trim();
+  const amount = parseFloat(document.getElementById('exp_amount').value);
+  
+  if (!date) {
+    showToast('Please select date', 'error');
+    return;
+  }
+  
+  if (!amount || amount <= 0) {
+    showToast('Please enter valid amount', 'error');
+    return;
+  }
+  
+  const expenses = DB.get('expenses') || [];
+  
+  if (editId) {
+    // Edit existing
+    const idx = expenses.findIndex(e => e.id === editId);
+    if (idx > -1) {
+      expenses[idx] = {
+        ...expenses[idx],
+        date,
+        category,
+        description,
+        amount,
+        updatedAt: new Date().toISOString(),
+        updatedBy: currentUser.id,
+        updatedByName: currentUser.name
+      };
+    }
+    showToast('Expense updated! ✅', 'success');
+  } else {
+    // Add new
+    const newExpense = {
+      id: 'exp_' + Date.now(),
+      date,
+      category,
+      description,
+      amount,
+      createdAt: new Date().toISOString(),
+      createdBy: currentUser.id,
+      createdByName: currentUser.name
+    };
+    expenses.push(newExpense);
+    showToast('Expense added! ✅', 'success');
+  }
+  
+  DB.set('expenses', expenses);
+  closePopup();
+  showExpenseManager();
+}
+
+function editExpense(id) {
+  closePopup();
+  
+  const expenses = DB.get('expenses') || [];
+  const expense = expenses.find(e => e.id === id);
+  if (!expense) return;
+  
+  const html = `
+    <div class="field">
+      <label>Date *</label>
+      <input type="date" id="exp_date" value="${expense.date}" style="width:100%;">
+    </div>
+    <div class="field">
+      <label>Category *</label>
+      <select id="exp_category" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:'Poppins',sans-serif;">
+        <option value="salary" ${expense.category==='salary'?'selected':''}>💼 Salary</option>
+        <option value="electricity" ${expense.category==='electricity'?'selected':''}>⚡ Electricity Bill</option>
+        <option value="rent" ${expense.category==='rent'?'selected':''}>🏠 Rent</option>
+        <option value="stationery" ${expense.category==='stationery'?'selected':''}>📝 Stationery</option>
+        <option value="maintenance" ${expense.category==='maintenance'?'selected':''}>🔧 Maintenance</option>
+        <option value="transport" ${expense.category==='transport'?'selected':''}>🚗 Transport</option>
+        <option value="other" ${expense.category==='other'?'selected':''}>📦 Other</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Description</label>
+      <input type="text" id="exp_description" value="${expense.description||''}" placeholder="e.g., Staff salary for March" style="width:100%;">
+    </div>
+    <div class="field">
+      <label>Amount *</label>
+      <input type="number" id="exp_amount" value="${expense.amount}" step="0.01" style="width:100%;">
+    </div>
+  `;
+  
+  showPopup('✏️', 'Edit Expense', 'Update expense details', html, [
+    { label:'Update', cls:'btn-primary', action:`saveExpense('${id}')` },
+    { label:'Cancel', cls:'btn-secondary', action:'closePopup();showExpenseManager()' }
+  ]);
+}
+
+function deleteExpense(id) {
+  closePopup();
+  
+  showConfirm(
+    'Delete Expense',
+    'Are you sure you want to delete this expense? This cannot be undone.',
+    '🗑',
+    () => {
+      const expenses = DB.get('expenses') || [];
+      const filtered = expenses.filter(e => e.id !== id);
+      DB.set('expenses', filtered);
+      showToast('Expense deleted! ✅', 'success');
+      showExpenseManager();
+    },
+    () => {
+      showExpenseManager();
+    }
+  );
+}
+
+function downloadExpensesCSV() {
+  const expenses = DB.get('expenses') || [];
+  if (expenses.length === 0) {
+    showToast('No expenses to export', 'error');
+    return;
+  }
+  
+  const sorted = expenses.sort((a, b) => new Date(a.date) - new Date(b.date));
+  
+  let csv = 'Date,Category,Description,Amount\n';
+  sorted.forEach(exp => {
+    csv += `${exp.date},"${exp.category}","${(exp.description || '').replace(/"/g, '""')}",${exp.amount}\n`;
+  });
+  
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  const today = new Date().toISOString().split('T')[0];
+  link.setAttribute('href', url);
+  link.setAttribute('download', `TurboWash_Expenses_${today}.csv`);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  
+  showToast('Expenses exported! 📥', 'success');
+}
+
+// ============================================================
+// PROFIT & LOSS REPORT
+// ============================================================
+function showProfitLossReport() {
+  const now = new Date();
+  const currentMonth = now.getMonth(); // 0-11
+  const currentYear = now.getFullYear();
+  
+  const html = `
+    <div style="margin-bottom:16px;">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+        <select id="pl_month" style="flex:1;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:'Poppins',sans-serif;">
+          <option value="0" ${currentMonth===0?'selected':''}>January</option>
+          <option value="1" ${currentMonth===1?'selected':''}>February</option>
+          <option value="2" ${currentMonth===2?'selected':''}>March</option>
+          <option value="3" ${currentMonth===3?'selected':''}>April</option>
+          <option value="4" ${currentMonth===4?'selected':''}>May</option>
+          <option value="5" ${currentMonth===5?'selected':''}>June</option>
+          <option value="6" ${currentMonth===6?'selected':''}>July</option>
+          <option value="7" ${currentMonth===7?'selected':''}>August</option>
+          <option value="8" ${currentMonth===8?'selected':''}>September</option>
+          <option value="9" ${currentMonth===9?'selected':''}>October</option>
+          <option value="10" ${currentMonth===10?'selected':''}>November</option>
+          <option value="11" ${currentMonth===11?'selected':''}>December</option>
+        </select>
+        <select id="pl_year" style="width:120px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:'Poppins',sans-serif;">
+          <option value="${currentYear-2}">${currentYear-2}</option>
+          <option value="${currentYear-1}">${currentYear-1}</option>
+          <option value="${currentYear}" selected>${currentYear}</option>
+          <option value="${currentYear+1}">${currentYear+1}</option>
+        </select>
+        <button onclick="renderPLReport()" class="btn btn-primary" style="padding:10px 16px;">Show</button>
+      </div>
+    </div>
+    
+    <div id="plReportContent"></div>
+  `;
+  
+  showPopup('📊', 'Profit & Loss Report', 'Monthly financial statement', html, [
+    { label:'Export PDF', cls:'btn-primary', action:'exportPLReportPDF()' },
+    { label:'Close', cls:'btn-secondary', action:'closePopup()' }
+  ], 'popup-large');
+  
+  // Render initial report
+  setTimeout(() => renderPLReport(), 100);
+}
+
+function renderPLReport() {
+  const month = parseInt(document.getElementById('pl_month').value);
+  const year = parseInt(document.getElementById('pl_year').value);
+  
+  // Get month name
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const monthName = monthNames[month];
+  
+  // Calculate date range
+  const startDate = new Date(year, month, 1);
+  const endDate = new Date(year, month + 1, 0, 23, 59, 59);
+  
+  // Get orders (income from paid orders)
+  const orders = DB.get('orders') || [];
+  const monthOrders = orders.filter(o => {
+    const orderDate = new Date(o.createdAt);
+    return orderDate >= startDate && orderDate <= endDate && 
+           (o.status === 'paid_delivered' || o.paidAmount > 0);
+  });
+  
+  const totalIncome = monthOrders.reduce((sum, o) => sum + (parseFloat(o.paidAmount) || 0), 0);
+  const totalRevenue = monthOrders.reduce((sum, o) => sum + (parseFloat(o.totalAmount) || 0), 0);
+  
+  // Get expenses
+  const expenses = DB.get('expenses') || [];
+  const monthExpenses = expenses.filter(e => {
+    const expDate = new Date(e.date);
+    return expDate >= startDate && expDate <= endDate;
+  });
+  
+  const totalExpenses = monthExpenses.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
+  
+  // Calculate profit/loss
+  const netProfit = totalIncome - totalExpenses;
+  const profitMargin = totalIncome > 0 ? (netProfit / totalIncome) * 100 : 0;
+  
+  // Expense breakdown by category
+  const expenseByCategory = {};
+  monthExpenses.forEach(e => {
+    expenseByCategory[e.category] = (expenseByCategory[e.category] || 0) + parseFloat(e.amount || 0);
+  });
+  
+  const categoryRows = Object.entries(expenseByCategory)
+    .sort((a, b) => b[1] - a[1])
+    .map(([cat, amt]) => {
+      const categoryIcons = {
+        salary: '💼', electricity: '⚡', rent: '🏠', stationery: '📝',
+        maintenance: '🔧', transport: '🚗', other: '📦'
+      };
+      const icon = categoryIcons[cat] || '💰';
+      const percentage = totalExpenses > 0 ? (amt / totalExpenses) * 100 : 0;
+      
+      return `
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:18px;">${icon}</span>
+            <span style="text-transform:capitalize;font-size:13px;">${cat}</span>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-weight:700;font-size:14px;">₹${amt.toFixed(0)}</div>
+            <div style="font-size:11px;color:var(--text3);">${percentage.toFixed(1)}%</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  
+  const html = `
+    <div style="background:linear-gradient(135deg,#4CAF50,#2E7D32);border-radius:12px;padding:20px;margin-bottom:16px;color:white;text-align:center;">
+      <div style="font-size:14px;opacity:0.9;margin-bottom:4px;">${monthName} ${year}</div>
+      <div style="font-size:32px;font-weight:900;font-family:'Nunito',sans-serif;margin-bottom:8px;">${netProfit >= 0 ? 'Profit' : 'Loss'}</div>
+      <div style="font-size:36px;font-weight:900;font-family:'Nunito',sans-serif;color:${netProfit >= 0 ? '#C8E6C9' : '#FFCDD2'};">₹${Math.abs(netProfit).toFixed(0)}</div>
+      <div style="font-size:13px;opacity:0.8;margin-top:8px;">Profit Margin: ${profitMargin.toFixed(1)}%</div>
+    </div>
+    
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+      <div style="background:rgba(76,175,80,0.1);border:2px solid #4CAF50;border-radius:12px;padding:16px;">
+        <div style="font-size:12px;color:var(--text2);margin-bottom:4px;">💰 Total Income</div>
+        <div style="font-size:24px;font-weight:900;color:#2E7D32;">₹${totalIncome.toFixed(0)}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px;">${monthOrders.length} order${monthOrders.length !== 1 ? 's' : ''}</div>
+      </div>
+      
+      <div style="background:rgba(244,67,54,0.1);border:2px solid #F44336;border-radius:12px;padding:16px;">
+        <div style="font-size:12px;color:var(--text2);margin-bottom:4px;">💸 Total Expenses</div>
+        <div style="font-size:24px;font-weight:900;color:#C62828;">₹${totalExpenses.toFixed(0)}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px;">${monthExpenses.length} expense${monthExpenses.length !== 1 ? 's' : ''}</div>
+      </div>
+    </div>
+    
+    ${categoryRows ? `
+      <div style="background:white;border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px;">
+        <div style="font-weight:700;font-size:14px;margin-bottom:12px;color:var(--text);">📊 Expense Breakdown</div>
+        ${categoryRows}
+      </div>
+    ` : ''}
+    
+    <div style="background:rgba(255,193,7,0.1);border:1px dashed #FFA000;border-radius:10px;padding:12px;font-size:12px;color:var(--text2);">
+      <strong>💡 Key Insights:</strong><br>
+      • Average daily income: ₹${(totalIncome / new Date(year, month + 1, 0).getDate()).toFixed(0)}<br>
+      • Average daily expense: ₹${(totalExpenses / new Date(year, month + 1, 0).getDate()).toFixed(0)}<br>
+      • Total revenue (unpaid included): ₹${totalRevenue.toFixed(0)}<br>
+      • Operating efficiency: ${totalExpenses > 0 && totalIncome > 0 ? ((1 - (totalExpenses / totalIncome)) * 100).toFixed(1) : '0'}%
+    </div>
+  `;
+  
+  document.getElementById('plReportContent').innerHTML = html;
+}
+
+function exportPLReportPDF() {
+  // For now, show a message - PDF export can be added later with jsPDF library
+  showToast('PDF export coming soon! For now, use screenshot.', 'info');
 }
 
 // ============================================================
@@ -4433,7 +7677,7 @@ function showNotifications() {
 }
 
 function showUserMenu() {
-  const roleLabels = { admin:'👑 Admin', operator:'⚙️ Operator', viewer:'👁️ Viewer' };
+  const roleLabels = { superadmin:'⭐ Super Admin', admin:'👑 Admin', operator:'⚙️ Operator', viewer:'👁️ Viewer' };
   const html = `
     <div style="text-align:center;padding:8px 0 16px;">
       <div style="width:64px;height:64px;border-radius:20px;background:linear-gradient(135deg,var(--orange),var(--yellow));display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;color:white;margin:0 auto 8px;font-family:'Nunito',sans-serif;">${currentUser.name.charAt(0)}</div>
@@ -4459,7 +7703,7 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
   overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('active'); });
 });
 
-function showPopup(icon, title, msg, bodyHtml, buttons) {
+function showPopup(icon, title, msg, bodyHtml, buttons, modalClass) {
   document.getElementById('popupIcon').textContent = icon;
   document.getElementById('popupTitle').textContent = title;
   document.getElementById('popupMsg').textContent = msg;
@@ -4467,6 +7711,15 @@ function showPopup(icon, title, msg, bodyHtml, buttons) {
   document.getElementById('popupFooter').innerHTML = buttons.map(b =>
     `<button class="btn ${b.cls}" style="flex:1" onclick="${b.action}">${b.label}</button>`
   ).join('');
+  
+  // Apply modal class if provided
+  const popup = document.querySelector('#genericPopup .popup');
+  if (modalClass) {
+    popup.className = 'popup ' + modalClass;
+  } else {
+    popup.className = 'popup';
+  }
+  
   document.getElementById('genericPopup').classList.add('active');
 }
 
